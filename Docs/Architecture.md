@@ -14,8 +14,8 @@ Cadence is in documentation and project-foundation planning. No Xcode project or
 ## Responsibilities
 
 - `App/`: composition root, navigation, dependency setup, scene lifecycle.
-- `Models/`: weekly plans, commitments, completion records, indulgence types, and indulgence entries.
-- `Views/`: My Week, Sunday Planning, iCheated, History, and settings flows.
+- `Models/`: weekly plans, Goals, checkoffs, iCheated categories, and indulgence occurrences.
+- `Views/`: My Day, Planning, History, and settings flows.
 - `Components/`: reusable controls and visual building blocks without feature ownership.
 - `Services/`: persistence adapters, calendar/week calculations, notifications, and future integrations.
 

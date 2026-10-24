@@ -30,13 +30,14 @@ Cadence should feel calm, clear, supportive, and occasionally playful. It is a c
 
 Keep the primary structure small and predictable:
 
-- **My Week:** Sunday planning, today's commitments, and weekly progress.
-- **iCheated:** Fast custom indulgence logging.
+- **My Day:** Today's Goals first, followed by fast iCheated occurrence logging.
+- **Planning:** Weekly intention-setting and goal management.
 - **History:** Simple review of past plans, checkoffs, and indulgences.
 
 ## Interaction standards
 
 - Daily checkoff: one tap.
-- Common indulgence entry: as few taps as practical.
+- Common indulgence occurrence: one tap on the category's plus control.
+- Accidental occurrence correction: one tap on the category's minus control.
 - Important actions should be reachable with one hand.
 - Always provide clear empty states and reversible editing where possible.

@@ -7,17 +7,18 @@
 - Create the Xcode project only after explicit approval.
 - Add one authoritative local quality command and matching GitHub Actions workflow.
 
-## Phase 1: My Week foundation
+## Phase 1: My Day foundation
 
-- Create and edit a small weekly plan.
-- Show today's commitments.
-- Complete or undo a checkoff in one tap.
+- Open the app to My Day.
+- Show today's Goals first and iCheated second.
+- Complete or undo a Goal checkoff in one tap.
+- Record or remove an iCheated occurrence with one tap.
 - Show quiet weekly progress without punitive streaks.
 
-## Phase 2: iCheated
+## Phase 2: Planning and iCheated expansion
 
+- Create and edit a small weekly plan.
 - Create and manage custom indulgence types.
-- Log a common indulgence in a few seconds.
 - Review, correct, or remove recent entries.
 
 ## Phase 3: History

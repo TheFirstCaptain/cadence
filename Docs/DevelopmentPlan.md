@@ -10,8 +10,8 @@
 ## Proposed source organization
 
 - `App/` — app entry point, navigation, and shared app state.
-- `Models/` — weekly plans, commitments, completion records, indulgence types, and indulgence entries.
-- `Views/` — My Week, Sunday planning, iCheated, and History screens.
+- `Models/` — weekly plans, Goals, checkoffs, iCheated categories, and indulgence occurrences.
+- `Views/` — My Day, Planning, and History screens and flows.
 - `Components/` — reusable controls, cards, progress indicators, and empty states.
 - `Services/` — persistence, date/week calculations, and later integrations.
 - `Docs/` — product, design, and implementation documentation.
@@ -24,16 +24,17 @@
 - Define data models and persistence boundaries.
 - Establish navigation and the visual theme.
 
-### 2. My Week
+### 2. My Day and Planning
 
-- Build Sunday planning for a small set of commitments.
-- Build today's one-tap checkoff experience.
+- Build Sunday planning for a small set of Goals.
+- Build My Day with Goals first and iCheated second.
+- Build today's one-tap goal checkoff experience.
 - Add a simple weekly progress summary.
 
-### 3. iCheated
+### 3. iCheated expansion
 
-- Add custom indulgence types.
-- Build the quick-log flow.
+- Validate the initial five-category quick-log flow.
+- Add custom indulgence types when separately approved.
 - Allow recent entries to be reviewed and corrected.
 
 ### 4. History

@@ -9,8 +9,8 @@ Cadence is a lightweight personal wellness app for building a sustainable rhythm
 Cadence is designed around four simple experiences:
 
 - **Sunday Planning:** set a small, realistic plan for the coming week.
-- **Daily checkoffs:** mark today's commitments complete with one tap.
-- **iCheated:** quickly log a custom indulgence without guilt or moral scoring.
+- **Daily checkoffs:** mark today's Goals complete with one tap.
+- **iCheated:** quickly record an indulgence occurrence without guilt or moral scoring.
 - **History:** notice useful patterns through simple weekly and daily review.
 
 The app is intended to be private and local-first. Punitive streaks, leaderboards, calorie counting, medical claims, and social competition are outside the initial product direction.
