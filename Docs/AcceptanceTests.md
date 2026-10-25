@@ -16,8 +16,15 @@ These are product-level scenarios. Feature records should add narrower validatio
 
 ## Weekly planning
 
-1. Given no plan for the coming week, when the user begins Sunday Planning, then the app offers a short, understandable way to set realistic Goals.
-2. Given an existing plan, when life changes, then the user can revise it without failure language or losing unrelated history.
+1. Given Sunday in the active week, when the user opens My Goals for Sunday Planning, then changes target the upcoming Monday-through-Sunday week without altering the Sunday that is ending.
+2. Given a short Goal name, when the user selects Daily, then the plan expects one completion on each day of the week.
+3. Given a short Goal name, when the user selects Weekly, then the plan expects one completion at any point during the week.
+4. Given Custom frequency, when the user configures it, then only targets from 2 through 6 days per week are offered and no day contributes more than one checkoff.
+5. Given Goals in the ending week, when the upcoming week begins without explicit Sunday Planning, then those Goals carry forward automatically.
+6. Given an active weekly plan, when the user adds or changes a Goal, then the change applies immediately without prorating its target and existing checkoffs count toward the updated frequency.
+7. Given a Goal with earlier checkoffs, when the user removes it midweek, then it leaves remaining My Day views while earlier checkoffs remain in History.
+8. Given an exact duplicate Goal name in the same plan, when the user tries to save it, then the duplicate is prevented with clear, nonjudgmental guidance.
+9. My Goals encourages a manageable list without enforcing a hard Goal limit.
 
 ## Daily checkoffs
 

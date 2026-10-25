@@ -15,9 +15,11 @@
 - Record or remove an iCheated occurrence with one tap.
 - Show quiet weekly progress without punitive streaks.
 
-## Phase 2: Planning and iCheated expansion
+## Phase 2: My Goals and iCheated expansion
 
-- Create and edit a small weekly plan.
+- Create and edit a small Monday-through-Sunday weekly plan in My Goals.
+- Support Daily, Weekly, and 2–6-times-per-week Custom frequencies.
+- Carry Goals forward and support flexible midweek changes without losing History.
 - Create and manage custom indulgence types.
 - Review, correct, or remove recent entries.
 

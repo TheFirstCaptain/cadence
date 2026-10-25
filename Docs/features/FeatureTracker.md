@@ -12,3 +12,4 @@ Use one outcome-oriented record per coherent capability. Keep implementation det
 | F-001A | Repository README | Complete | Done | [F-001A.md](./F-001A.md) | 2026-10-24 | Added a public project overview, current status, documentation map, and contributor orientation. |
 | F-002 | iOS Project Foundation | Proposed | Proposed | Not yet created | 2026-10-24 | Requires explicit approval and platform, persistence, identity, and testing decisions. |
 | F-003 | My Day | Active | Clarifying | [F-003.md](./F-003.md) | 2026-10-24 | Default daily experience defined at a product level; visual, empty-state, ordering, and feedback details remain open. |
+| F-004 | My Goals | Active | Clarifying | [F-004.md](./F-004.md) | 2026-10-25 | Monday–Sunday planning, frequency choices, carry-forward, and midweek lifecycle rules defined; My Day presentation remains open. |

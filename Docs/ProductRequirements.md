@@ -15,8 +15,13 @@ Cadence is a lightweight personal wellness app that helps people find a sustaina
 
 ### Weekly planning
 
-- Invite the user to set intentions each Sunday for the coming week.
-- Support a small, realistic set of wellness Goals.
+- Provide a My Goals tab for setting intentions each Sunday for the upcoming Monday-through-Sunday week.
+- Let the user add a short Goal name and select Daily, Weekly, or Custom frequency.
+- Define Daily as once per day, Weekly as once at any point during the week, and Custom as completion on 2–6 days during the week.
+- Carry Goals forward automatically so Monday still has a plan when Sunday Planning is skipped.
+- Allow Goals to be added, renamed, rescheduled, or removed during an active week without rewriting prior History.
+- Prevent exact duplicate Goal names within the same weekly plan.
+- Encourage a manageable set of Goals without imposing a hard limit.
 - Keep plans flexible so a missed day never feels like failure.
 
 ### Daily checkoffs

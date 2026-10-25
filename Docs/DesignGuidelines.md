@@ -31,7 +31,7 @@ Cadence should feel calm, clear, supportive, and occasionally playful. It is a c
 Keep the primary structure small and predictable:
 
 - **My Day:** Today's Goals first, followed by fast iCheated occurrence logging.
-- **Planning:** Weekly intention-setting and goal management.
+- **My Goals:** Weekly intention-setting and Goal management.
 - **History:** Simple review of past plans, checkoffs, and indulgences.
 
 ## Interaction standards

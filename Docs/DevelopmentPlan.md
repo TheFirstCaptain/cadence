@@ -11,7 +11,7 @@
 
 - `App/` — app entry point, navigation, and shared app state.
 - `Models/` — weekly plans, Goals, checkoffs, iCheated categories, and indulgence occurrences.
-- `Views/` — My Day, Planning, and History screens and flows.
+- `Views/` — My Day, My Goals, and History screens and flows.
 - `Components/` — reusable controls, cards, progress indicators, and empty states.
 - `Services/` — persistence, date/week calculations, and later integrations.
 - `Docs/` — product, design, and implementation documentation.
@@ -24,9 +24,11 @@
 - Define data models and persistence boundaries.
 - Establish navigation and the visual theme.
 
-### 2. My Day and Planning
+### 2. My Day and My Goals
 
-- Build Sunday planning for a small set of Goals.
+- Build Sunday Planning in My Goals for the upcoming Monday-through-Sunday week.
+- Support Daily, Weekly, and Custom 2–6-times-per-week frequencies.
+- Carry Goals forward and preserve History across midweek changes.
 - Build My Day with Goals first and iCheated second.
 - Build today's one-tap goal checkoff experience.
 - Add a simple weekly progress summary.
