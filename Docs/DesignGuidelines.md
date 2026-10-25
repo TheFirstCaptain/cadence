@@ -16,6 +16,7 @@ Cadence should feel calm, clear, supportive, and occasionally playful. It is a c
 - Use muted greens, soft blues, and warm neutrals.
 - Favor clean SwiftUI typography and generous spacing.
 - Use simple progress rings, bars, or a subtle rhythm/wave motif.
+- Use simple monochrome Apple-style symbols for iCheated categories; pair every symbol with text and an accessibility label.
 - Keep animation gentle and purposeful.
 - Maintain strong contrast and support Dynamic Type and VoiceOver.
 
@@ -34,10 +35,15 @@ Keep the primary structure small and predictable:
 - **My Goals:** Weekly intention-setting and Goal management.
 - **History:** Simple review of past plans, checkoffs, and indulgences.
 
+V1 uses exactly these three primary tabs. Settings may be added later only when genuine app preferences exist.
+
 ## Interaction standards
 
 - Daily checkoff: one tap.
 - Common indulgence occurrence: one tap on the category's plus control.
 - Accidental occurrence correction: one tap on the category's minus control.
+- Use quiet selection or light haptics for checkoffs and counters, immediate visual state changes, and concise VoiceOver announcements.
+- Do not use routine sounds, banners, confetti, or confirmation dialogs for reversible everyday actions.
+- Respect Reduce Motion by removing nonessential count and checkmark animation.
 - Important actions should be reachable with one hand.
 - Always provide clear empty states and reversible editing where possible.

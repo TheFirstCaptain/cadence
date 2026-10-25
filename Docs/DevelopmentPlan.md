@@ -30,6 +30,8 @@
 - Support Daily, Weekly, and Custom 2–6-times-per-week frequencies.
 - Carry Goals forward and preserve History across midweek changes.
 - Build My Day with Goals first and iCheated second.
+- Separate Daily Goals into Today and Weekly or Custom Goals into This Week.
+- Add the first-run Goals empty state, manual ordering, Apple-style symbols, and quiet accessible feedback.
 - Build today's one-tap goal checkoff experience.
 - Add a simple weekly progress summary.
 
@@ -41,8 +43,9 @@
 
 ### 4. History
 
-- Show past weeks and daily details.
-- Summarize useful patterns without scores or judgment.
+- Build current and prior Week views, calendar Month summaries, and day details.
+- Show completed-of-target Goal counts and neutral iCheated totals without percentages or comparisons.
+- Support reversible historical corrections and stable original local dates.
 
 ### 5. Polish and validation
 

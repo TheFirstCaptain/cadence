@@ -11,6 +11,8 @@
 
 - Open the app to My Day.
 - Show today's Goals first and iCheated second.
+- Separate Daily Goals under Today and flexible Goals under This Week.
+- Provide a first-run empty Goals invitation without blocking iCheated.
 - Complete or undo a Goal checkoff in one tap.
 - Record or remove an iCheated occurrence with one tap.
 - Show quiet weekly progress without punitive streaks.
@@ -20,14 +22,16 @@
 - Create and edit a small Monday-through-Sunday weekly plan in My Goals.
 - Support Daily, Weekly, and 2–6-times-per-week Custom frequencies.
 - Carry Goals forward and support flexible midweek changes without losing History.
+- Add focused Goal creation/editing and manual ordering.
 - Create and manage custom indulgence types.
 - Review, correct, or remove recent entries.
 
 ## Phase 3: History
 
-- Browse previous weeks and days.
-- Show understandable patterns without scoring or judgment.
-- Preserve privacy and allow correction of personal records.
+- Open to the current week and browse prior Week and calendar Month views.
+- Show plain Goal progress and neutral iCheated counts without percentages or comparisons.
+- Drill into day details and correct personal records with reversible deletion.
+- Preserve stable original local dates across time-zone changes.
 
 ## Phase 4: Polish
 

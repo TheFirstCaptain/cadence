@@ -15,7 +15,7 @@ Cadence is in documentation and project-foundation planning. No Xcode project or
 
 - `App/`: composition root, navigation, dependency setup, scene lifecycle.
 - `Models/`: immutable weekly plan boundaries, Goals and their frequencies, checkoffs, iCheated categories, and indulgence occurrences.
-- `Views/`: My Day, My Goals, History, and settings flows.
+- `Views/`: the three primary tabs My Day, My Goals, and History; focused sheets and drill-down details.
 - `Components/`: reusable controls and visual building blocks without feature ownership.
 - `Services/`: persistence adapters, calendar/week calculations, notifications, and future integrations.
 
@@ -25,9 +25,12 @@ Cadence is in documentation and project-foundation planning. No Xcode project or
 - Calendar calculations belong in a testable service and must use explicit calendars, locales, and time zones.
 - Weekly plans run Monday through Sunday. Sunday Planning edits the upcoming week without mutating the Sunday that ends the active week.
 - Carried-forward Goals seed the upcoming plan. Midweek edits affect the active plan immediately while historical checkoffs remain attached to their original dates.
+- Daily checkoffs and indulgence occurrences preserve their original local date and time-zone context so travel never regroups past History. New records use the device's current local calendar.
+- History derives weekly and calendar-month summaries from persisted records. Weekly Goal targets retain Monday-through-Sunday boundaries even when a week crosses a month boundary.
 - Persistence must be accessed through a narrow boundary so migrations and test stores can be validated.
 - Notifications, if approved, remain optional and must degrade safely when permission is denied.
 - Domain models must not encode moral scores, punitive streaks, or health claims.
+- V1 has no Settings tab; future preferences must justify a separate surface rather than displacing a primary workflow.
 
 ## High-risk areas
 

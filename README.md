@@ -17,7 +17,7 @@ The app is intended to be private and local-first. Punitive streaks, leaderboard
 
 ## Current status
 
-Cadence is in its development-foundation phase. The product direction, design principles, architecture boundaries, roadmap, acceptance tests, and agentic coding workflow are documented. No Xcode project or application code has been created yet.
+Cadence is in its development-foundation phase. Its three-tab product skeleton—My Day, My Goals, and History—along with design principles, architecture boundaries, acceptance tests, and agentic coding workflow is documented. No Xcode project or application code has been created yet.
 
 The next planned milestone is [F-002: iOS Project Foundation](Docs/features/FeatureTracker.md), which will establish platform targets, persistence, project identity, testing, and the native quality command after explicit approval.
 

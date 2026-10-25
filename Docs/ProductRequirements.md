@@ -9,8 +9,10 @@ Cadence is a lightweight personal wellness app that helps people find a sustaina
 ### My Day
 
 - Open the app to My Day by default.
-- Show today's Goals first and the iCheated section second.
+- Show Goals first, divided into Today for Daily Goals and This Week for Weekly and Custom Goals, followed by iCheated.
 - Keep completed goals visible and allow their checkoffs to be reversed.
+- Keep Weekly and Custom Goals available across the week until their targets are met, then retain their completed progress for the rest of the week.
+- On first launch, show a calm empty Goals state linking to My Goals while keeping iCheated usable.
 - Show today's iCheated counts while retaining timestamped occurrences for History.
 
 ### Weekly planning
@@ -20,7 +22,9 @@ Cadence is a lightweight personal wellness app that helps people find a sustaina
 - Define Daily as once per day, Weekly as once at any point during the week, and Custom as completion on 2–6 days during the week.
 - Carry Goals forward automatically so Monday still has a plan when Sunday Planning is skipped.
 - Allow Goals to be added, renamed, rescheduled, or removed during an active week without rewriting prior History.
-- Prevent exact duplicate Goal names within the same weekly plan.
+- Prevent Goal names that match after trimming and case-insensitive comparison within the same weekly plan.
+- Add and edit Goals in a focused sheet; compare trimmed Goal names case-insensitively for duplicates.
+- Allow manual Goal ordering and preserve that order within My Day's Today and This Week groups.
 - Encourage a manageable set of Goals without imposing a hard limit.
 - Keep plans flexible so a missed day never feels like failure.
 
@@ -41,7 +45,11 @@ Cadence is a lightweight personal wellness app that helps people find a sustaina
 
 ### History
 
-- Present simple weekly and daily history.
+- Open to the current Monday-through-Sunday week and allow switching between Week and calendar Month.
+- Show Goal results as plain completed-of-target counts without percentages.
+- Show every iCheated category, including zero counts, without previous-period comparisons.
+- Allow navigation to prior periods, day and week drill-down, and a Today action; do not expose future periods.
+- Allow correction of past Goal checkoffs and removal of individual past iCheated occurrences with Undo.
 - Help the user notice patterns across Goals and indulgence occurrences.
 - Favor understandable summaries over dense analytics.
 
@@ -51,6 +59,7 @@ Cadence is a lightweight personal wellness app that helps people find a sustaina
 - Local-first data storage.
 - Weekly plans, daily Goal completion records, the initial iCheated categories and occurrences, and history.
 - Calm empty states and encouraging copy.
+- Three primary tabs: My Day, My Goals, and History.
 
 ## Out of scope for the first version
 
