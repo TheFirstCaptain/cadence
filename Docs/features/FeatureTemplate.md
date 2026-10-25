@@ -54,6 +54,17 @@ Use `No material findings.` when appropriate. Otherwise record every material fi
 
 Describe automated tests, manual scenarios, accessibility checks, and device or simulator coverage.
 
+## Completion evidence
+
+- Exact quality command:
+- Tested source revision or tree:
+- Immutable CI/handoff run identity:
+- Xcode/Swift version:
+- Simulator destination:
+- Result:
+- Documentation-only closeout check, if used:
+- Regression guard added for discovered drift, or tracked manual follow-up:
+
 ## Open questions
 
 - 

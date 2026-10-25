@@ -12,6 +12,7 @@ A change is done only when every applicable item is satisfied or a limitation is
 - The complete diff has been reviewed for scope creep, privacy, data loss, and stale documentation.
 - Tracker state and related records are current.
 - No unresolved critical or high finding remains.
+- Every discovered drift class has a permanent automated regression guard, or a tracked manual check and automation follow-up with an owner and residual risk.
 - The handoff states files changed, behavior changed, validation performed, and residual risk.
 
 ## User-visible behavior
@@ -36,8 +37,10 @@ A change is done only when every applicable item is satisfied or a limitation is
 ## After the Xcode project exists
 
 - The authoritative quality command passes locally.
+- Completion evidence records the exact quality command, tested source revision or tree, immutable CI/handoff run identity, Xcode/Swift version, simulator destination, and result. A documentation-only evidence closeout may follow the full run, but must pass documentation and consistency checks and may not alter executable inputs.
 - The app builds for the documented simulator or destination.
 - Unit and UI tests appropriate to the change pass.
 - GitHub Actions uses the same quality policy as local development.
+- GitHub Actions runs the full gate for pull requests, protected-branch pushes, and weekly drift detection.
 - Simulator validation runs without personal signing credentials.
 - Meaningful UI changes complete a manual matrix covering largest supported Dynamic Type, VoiceOver focus/actions, Reduce Motion, light/dark appearance, and one-handed reach.

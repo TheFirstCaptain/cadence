@@ -33,7 +33,8 @@
 - Add domain date/ID/frequency values and deterministic time dependencies with boundary tests.
 - Add Schema V1, migration-plan declaration, production and in-memory container factories, and idempotent built-in category seeding.
 - Add the actor-backed store and focused repository protocols with invariant and persistence tests.
-- Add launch/navigation UI smoke coverage, Apple formatting checks, documentation validation, `Scripts/quality.sh`, and matching GitHub Actions.
+- Add launch/navigation UI smoke coverage, Apple formatting checks, architecture/project-policy checks, `Scripts/quality.sh --fast`, the full `Scripts/quality.sh` gate, and matching pull-request, protected-branch, and weekly GitHub Actions runs.
+- Add negative fixtures proving each harness guard rejects a representative violation, and ratchet every later drift class into a permanent regression check.
 
 ### 2. My Day and My Goals
 

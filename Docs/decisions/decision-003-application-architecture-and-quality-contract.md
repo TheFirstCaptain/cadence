@@ -27,7 +27,13 @@ The repository quality command is `Scripts/quality.sh`. It fails fast and perfor
 7. XCTest UI smoke tests through `test-without-building`.
 8. Result-bundle existence checks and actionable failure output.
 
-The default logical destination is `platform=iOS Simulator,name=iPhone 17 Pro,OS=latest`, overridable through `CADENCE_DESTINATION`. No simulator UUID is committed. GitHub Actions invokes the same script, pins an environment with Xcode 27 when available, requires no signing secrets, and uploads result bundles or logs on failure.
+`Scripts/quality.sh --fast` is the supported inner loop. It reuses the same stages and policy implementation for documentation and harness consistency, project-policy checks, strict formatting, compilation, and focused unit tests, while omitting UI tests and clean full-suite work. The full command is a strict superset, unknown modes fail, and contributors run the fast loop while working before running the full gate for review and completion.
+
+Repository-owned semantic checks reject architectural and project drift that formatting cannot detect, including unchecked Sendable escape hatches, SwiftData mutation from views, iCloud or CloudKit entitlements, unsupported targets/orientations/deployment versions, missing shared schemes or test targets, source files under explicitly owned roots that are absent from declared target-membership allowlists, broken documentation links, inconsistent tracker/status values, and local/CI invocation divergence. Project-aware or syntax-aware inspection is preferred over broad text scanning. Swift compiler warnings are treated as errors where supported. Each check has a representative negative fixture.
+
+The default logical destination is `platform=iOS Simulator,name=iPhone 17 Pro,OS=latest`, overridable through `CADENCE_DESTINATION`. No simulator UUID is committed. GitHub Actions invokes the same full script for pull requests, protected-branch pushes, and a weekly scheduled drift run; pins an environment with Xcode 27 when available; requires no signing secrets; and uploads result bundles or logs on failure.
+
+Quality policy follows a regression ratchet. Every discovered divergence is classified and receives the lowest-cost deterministic guard for its entire class before the work closes. When automation is genuinely infeasible, the work records a manual check, owner, reason, residual risk, and tracked automation follow-up. Guards cannot be removed or weakened silently, and scheduled failures cannot be normalized by relaxing the contract.
 
 F-002 creates only launch, default-tab, and three-tab navigation UI smoke coverage. Complete workflow UI tests belong to F-003 through F-005 when those workflows exist. Meaningful UI changes also require a manual accessibility matrix because automated tests cannot prove VoiceOver usability, Dynamic Type layout, contrast, haptics, or Reduce Motion behavior completely.
 
@@ -39,6 +45,9 @@ F-002 creates only launch, default-tab, and three-tab navigation UI smoke covera
 - The schema contains some deliberate duplication, such as durable foreign IDs beside optional relationships, to preserve renderable History.
 - Active-week edits intentionally recalculate that week; users see one coherent plan per week rather than per-day configuration fragments.
 - Local and hosted validation share one policy and do not depend on personal signing credentials.
+- Fast checks shorten the implementation feedback loop without creating a second, weaker policy.
+- Weekly execution detects toolchain, runner, simulator, project-setting, and latent test drift even when no code changes.
+- A discovered failure class becomes harder to repeat because its guard is retained permanently.
 - The initial repository carries more foundation tests and documentation, reducing migration and date-boundary risk later.
 
 ## Alternatives considered

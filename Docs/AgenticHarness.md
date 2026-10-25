@@ -57,6 +57,8 @@ Reviewer output should include:
 - Validation required.
 - Blockers or residual risk.
 
+For code changes, the independent reviewer also inspects the complete diff, changed tests, newly required regression guards, and the authoritative quality result. The reviewer must confirm that a correction addresses the drift class rather than only the observed example.
+
 Critical and high findings must be fixed. Medium findings must be fixed or explicitly accepted by the user with a tracked follow-up and residual risk. Low findings require a recorded disposition.
 
 ## Implementation loop
@@ -76,6 +78,18 @@ Critical and high findings must be fixed. Medium findings must be fixed or expli
 Before Xcode project creation, the harness is documentation-enforced through structured review and tracker consistency.
 
 When the project is created, add one repository-owned command, expected to be `Scripts/quality.sh`, that runs the same build, tests, formatting or linting, and harness checks used in CI. Do not maintain a weaker CI-only or local-only policy.
+
+`Scripts/quality.sh --fast` is the supported inner loop. It runs deterministic documentation and harness checks, project-policy checks, strict formatting lint, compilation, and focused unit tests without UI tests. Contributors run it repeatedly while working.
+
+`Scripts/quality.sh` is the authoritative full gate and a strict superset of `--fast`. It includes clean builds, all unit tests, required UI tests, and result-bundle checks. Run it before review handoff and again against the final reviewed diff. CI invokes the full command directly. Unknown modes fail, and shared implementation prevents local and CI stages from diverging.
+
+The full gate runs for pull requests, pushes to the protected branch, and on a weekly schedule. Scheduled failures become tracked engineering work and must not be normalized by weakening checks.
+
+## Drift prevention
+
+Any discovered divergence among approved behavior, documentation, project settings, code, tests, or local and CI results must be classified and recorded. Before that work item closes, add the lowest-cost deterministic automated check that detects the entire drift class, not only the observed instance. Demonstrate the guard failing against a representative faulty state when practical and passing after correction.
+
+If automation is not currently feasible, record a manual check, owner, reason, residual risk, and tracked automation follow-up. A regression guard may not be removed or weakened without updating the relevant tracked record and decision. Flaky failures are investigated; blind reruns, silent suppressions, and relaxed thresholds are not accepted as fixes.
 
 ## Scope control
 
