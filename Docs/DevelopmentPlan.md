@@ -2,8 +2,10 @@
 
 ## Technical direction
 
-- SwiftUI for the interface.
-- A simple local persistence layer, with SwiftData as the likely starting point.
+- SwiftUI for an iPhone-only, portrait-only interface targeting iOS 27 or later.
+- Local-only SwiftData behind a repository/service boundary.
+- A versioned, CloudKit-compatible schema with app-generated UUIDs, optional relationships, explicit inverses where needed, and no persistence-level unique constraints.
+- In-memory SwiftData configurations for automated tests.
 - Small feature-focused views supported by reusable components and services.
 - No Xcode project will be created until explicitly approved.
 
@@ -20,7 +22,7 @@
 
 ### 1. Foundation
 
-- Approve the platform target and create the Xcode project.
+- Update to Xcode 27 or later and create the iOS 27 iPhone project after the remaining foundation decisions are approved.
 - Define data models and persistence boundaries.
 - Establish navigation and the visual theme.
 
@@ -55,7 +57,6 @@
 
 ## Decisions to make before project creation
 
-- Minimum supported iOS version.
-- iPhone-only or universal iPhone/iPad support.
 - Final bundle identifier and development team.
-- Whether SwiftData is acceptable for the first release.
+- Swift Testing and XCTest UI test structure.
+- Formatting, linting, documentation validation, and `Scripts/quality.sh` contents.

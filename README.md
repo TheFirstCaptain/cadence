@@ -19,7 +19,7 @@ The app is intended to be private and local-first. Punitive streaks, leaderboard
 
 Cadence is in its development-foundation phase. Its three-tab product skeleton—My Day, My Goals, and History—along with design principles, architecture boundaries, acceptance tests, and agentic coding workflow is documented. No Xcode project or application code has been created yet.
 
-The next planned milestone is [F-002: iOS Project Foundation](Docs/features/FeatureTracker.md), which will establish platform targets, persistence, project identity, testing, and the native quality command after explicit approval.
+The active foundation milestone is [F-002: iOS Project Foundation](Docs/features/F-002.md). Cadence targets iPhone in portrait on iOS 27 and will use local-only SwiftData behind a repository boundary with a CloudKit-compatible schema. Project identity, testing, and the native quality command remain to be decided before project creation.
 
 ## Repository layout
 

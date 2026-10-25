@@ -55,8 +55,8 @@ Cadence is a lightweight personal wellness app that helps people find a sustaina
 
 ## Initial scope
 
-- Native iOS app built with SwiftUI.
-- Local-first data storage.
+- Native iPhone app built with SwiftUI for portrait use on iOS 27 or later.
+- Local-only SwiftData storage in V1, designed for a separately approved future CloudKit sync feature.
 - Weekly plans, daily Goal completion records, the initial iCheated categories and occurrences, and history.
 - Calm empty states and encouraging copy.
 - Three primary tabs: My Day, My Goals, and History.

@@ -70,6 +70,17 @@ These are product-level scenarios. Feature records should add narrower validatio
 4. Every timestamped record preserves its original local date and time-zone context; a later time-zone change does not regroup past History.
 5. New records use the device's current local date and time zone.
 
+## Platform and persistence
+
+1. Cadence builds and runs as an iPhone-only app targeting iOS 27 or later.
+2. V1 supports portrait orientation and does not expose iPad or landscape layouts.
+3. Production data remains on device and SwiftData CloudKit synchronization is explicitly disabled.
+4. Views access persistence through the repository/service boundary rather than mutating the SwiftData context directly.
+5. An in-memory SwiftData configuration supports deterministic automated tests.
+6. Persisted models use app-generated UUIDs and repository-level duplicate validation instead of CloudKit-incompatible unique constraints.
+7. Model relationships remain optional, define inverses where needed, and avoid deny deletion rules so a future sync feature does not require avoidable schema reconstruction.
+8. Versioned schema and migration tests preserve existing records across application updates.
+
 ## Accessibility and privacy
 
 1. Core flows remain usable with Dynamic Type and VoiceOver.

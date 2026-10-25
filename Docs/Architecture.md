@@ -6,9 +6,11 @@ Cadence is in documentation and project-foundation planning. No Xcode project or
 
 ## Intended platform
 
-- Native iOS application.
+- Native iPhone application targeting iOS 27 or later.
+- Portrait-only interface in V1; iPad and landscape layouts are out of scope.
 - SwiftUI presentation.
-- Local-first persistence; SwiftData is the leading candidate but requires an explicit project decision.
+- Local-only SwiftData persistence behind a repository/service boundary.
+- A versioned, CloudKit-compatible schema from the first release, with iCloud sync disabled until a separate feature is approved and validated.
 - No account, server, analytics, or cloud dependency in the initial version.
 
 ## Responsibilities
@@ -28,6 +30,10 @@ Cadence is in documentation and project-foundation planning. No Xcode project or
 - Daily checkoffs and indulgence occurrences preserve their original local date and time-zone context so travel never regroups past History. New records use the device's current local calendar.
 - History derives weekly and calendar-month summaries from persisted records. Weekly Goal targets retain Monday-through-Sunday boundaries even when a week crosses a month boundary.
 - Persistence must be accessed through a narrow boundary so migrations and test stores can be validated.
+- Production uses an on-device SwiftData configuration with CloudKit explicitly disabled; tests use an in-memory configuration.
+- Persisted records use app-generated UUID identity. Duplicate business rules are enforced in repository logic rather than SwiftData unique constraints.
+- Relationships remain CloudKit-compatible: optional with explicit inverses where inference is unreliable, and without deny deletion rules.
+- Schema evolution uses versioned SwiftData schemas and migration plans; new fields require safe defaults or optionality.
 - Notifications, if approved, remain optional and must degrade safely when permission is denied.
 - Domain models must not encode moral scores, punitive streaks, or health claims.
 - V1 has no Settings tab; future preferences must justify a separate surface rather than displacing a primary workflow.
@@ -43,7 +49,6 @@ Cadence is in documentation and project-foundation planning. No Xcode project or
 
 ## Architecture decisions still required
 
-- Minimum iOS version and supported device families.
-- Persistence framework and migration strategy.
 - Bundle identifier and signing arrangement.
 - Testing structure and any formatting or linting tools.
+- Exact repository protocols, initial schema types, and migration-test fixtures.

@@ -3,7 +3,9 @@
 ## Phase 0: Development foundation
 
 - Establish the agentic coding harness.
-- Decide platform targets, persistence, bundle identity, and testing approach.
+- Target iPhone portrait on iOS 27 or later.
+- Use local-only SwiftData behind a repository boundary with a versioned, CloudKit-compatible schema.
+- Decide bundle identity, signing, testing, and quality tooling.
 - Create the Xcode project only after explicit approval.
 - Add one authoritative local quality command and matching GitHub Actions workflow.
 
