@@ -7,8 +7,11 @@
 - A versioned, CloudKit-compatible schema with app-generated UUIDs, optional relationships, explicit inverses where needed, and no persistence-level unique constraints.
 - In-memory SwiftData configurations for automated tests.
 - Swift Testing for domain, repository, calendar, aggregation, migration, and failure-path coverage.
-- XCTest UI for complete product workflows.
+- XCTest UI smoke coverage for the F-002 shell, with complete workflows added by F-003 through F-005.
 - Injected clock and calendar dependencies for deterministic date tests.
+- Injected time-zone and UUID dependencies where deterministic fixtures require them.
+- Gregorian civil-date domain values with fixed Monday-through-Sunday week calculations.
+- One actor-backed SwiftData store implementing focused planning, daily-tracking, and History repository protocols.
 - Small feature-focused views supported by reusable components and services.
 - No Xcode project will be created until explicitly approved.
 
@@ -25,9 +28,12 @@
 
 ### 1. Foundation
 
-- Update to Xcode 27 or later and create the iOS 27 iPhone project after the remaining foundation decisions are approved.
-- Define data models and persistence boundaries.
-- Establish navigation and the visual theme.
+- Create one iOS 27 project with Cadence, CadenceTests, and CadenceUITests targets plus a shared scheme.
+- Establish iPhone portrait settings, three-tab placeholder shell, bundle identity, simulator-safe signing, and Swift 6 concurrency checking.
+- Add domain date/ID/frequency values and deterministic time dependencies with boundary tests.
+- Add Schema V1, migration-plan declaration, production and in-memory container factories, and idempotent built-in category seeding.
+- Add the actor-backed store and focused repository protocols with invariant and persistence tests.
+- Add launch/navigation UI smoke coverage, Apple formatting checks, documentation validation, `Scripts/quality.sh`, and matching GitHub Actions.
 
 ### 2. My Day and My Goals
 
@@ -61,4 +67,4 @@
 ## Decisions to make before project creation
 
 - Select the user's Apple development team in Xcode automatic signing.
-- Formatting, linting, documentation validation, and `Scripts/quality.sh` contents.
+- Confirm the default `iPhone 17 Pro` / latest iOS 27 simulator destination is installed; otherwise set `CADENCE_DESTINATION` to an available iPhone simulator.

@@ -25,7 +25,7 @@ The first schema is versioned and remains compatible with a future private Cloud
 
 Enabling iCloud is a separate Tier 3 feature. It must add capabilities intentionally and validate migration of existing local data, offline behavior, concurrent edits, conflicts, deletion propagation, account changes, and multi-device recovery before release.
 
-Domain, repository, calendar, and aggregation tests use Swift Testing with in-memory persistence and injected clock/calendar dependencies. Complete user workflows use XCTest UI. One repository-owned quality command is authoritative both locally and in GitHub Actions.
+Domain, repository, calendar, and aggregation tests use Swift Testing with in-memory persistence and injected clock/calendar dependencies. F-002 establishes XCTest UI smoke coverage; complete workflows are added with the features that implement them. One repository-owned quality command is authoritative both locally and in GitHub Actions.
 
 ## Consequences
 
@@ -50,5 +50,6 @@ Domain, repository, calendar, and aggregation tests use Swift Testing with in-me
 
 ## References
 
+- [Decision 003: Application Architecture and Quality Contract](./decision-003-application-architecture-and-quality-contract.md)
 - [Apple: Syncing model data across a person's devices](https://developer.apple.com/documentation/swiftdata/syncing-model-data-across-a-persons-devices)
 - [Apple: Xcode release notes](https://developer.apple.com/documentation/xcode-release-notes)

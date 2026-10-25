@@ -81,9 +81,14 @@ These are product-level scenarios. Feature records should add narrower validatio
 7. Model relationships remain optional, define inverses where needed, and avoid deny deletion rules so a future sync feature does not require avoidable schema reconstruction.
 8. Versioned schema and migration tests preserve existing records across application updates.
 9. The app uses the Cadence product/display name and `com.thefirstcaptain.cadence` bundle identifier with automatic signing.
-10. Swift Testing covers domain and repository behavior using in-memory storage and injected clock/calendar dependencies.
-11. XCTest UI covers complete user workflows.
+10. Swift Testing covers domain and repository behavior using fresh in-memory storage and injected clock, Gregorian calendar, and time-zone dependencies.
+11. F-002 XCTest UI coverage proves launch, My Day default selection, and navigation across all three tabs; complete workflows are added by F-003 through F-005.
 12. Local development and GitHub Actions invoke the same authoritative quality command.
+13. Simulator build and tests do not require a personal signing team, certificate, or provisioning profile.
+14. Historical records retain captured Gregorian local-date components, time-zone identifier, and UTC offset after travel or time-zone rule changes.
+15. Prior-week Goal snapshots remain unchanged after active-week edits; active-week renames and frequency changes consistently update that entire active week.
+16. Built-in iCheated category seeding is idempotent and uses stable app-defined UUIDs.
+17. Repository transactions reject duplicate plans, normalized duplicate Goal names, duplicate daily checkoffs, invalid frequency targets, and checkoffs outside active intervals without partial writes.
 
 ## Accessibility and privacy
 

@@ -39,3 +39,5 @@ A change is done only when every applicable item is satisfied or a limitation is
 - The app builds for the documented simulator or destination.
 - Unit and UI tests appropriate to the change pass.
 - GitHub Actions uses the same quality policy as local development.
+- Simulator validation runs without personal signing credentials.
+- Meaningful UI changes complete a manual matrix covering largest supported Dynamic Type, VoiceOver focus/actions, Reduce Motion, light/dark appearance, and one-handed reach.
