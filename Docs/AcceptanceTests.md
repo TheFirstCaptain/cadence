@@ -80,6 +80,10 @@ These are product-level scenarios. Feature records should add narrower validatio
 6. Persisted models use app-generated UUIDs and repository-level duplicate validation instead of CloudKit-incompatible unique constraints.
 7. Model relationships remain optional, define inverses where needed, and avoid deny deletion rules so a future sync feature does not require avoidable schema reconstruction.
 8. Versioned schema and migration tests preserve existing records across application updates.
+9. The app uses the Cadence product/display name and `com.thefirstcaptain.cadence` bundle identifier with automatic signing.
+10. Swift Testing covers domain and repository behavior using in-memory storage and injected clock/calendar dependencies.
+11. XCTest UI covers complete user workflows.
+12. Local development and GitHub Actions invoke the same authoritative quality command.
 
 ## Accessibility and privacy
 

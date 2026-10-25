@@ -21,6 +21,16 @@ Cadence is in documentation and project-foundation planning. No Xcode project or
 - `Components/`: reusable controls and visual building blocks without feature ownership.
 - `Services/`: persistence adapters, calendar/week calculations, notifications, and future integrations.
 
+## Project identity and testing
+
+- Product and display name: Cadence.
+- Bundle identifier: `com.thefirstcaptain.cadence`.
+- Signing: automatic, using the user's selected Apple development team.
+- Swift Testing: domain models, repositories, calendar logic, aggregation, migrations, and failure paths.
+- XCTest UI: complete My Day, My Goals, and History workflows.
+- Date-sensitive behavior receives injected clock and calendar dependencies.
+- Local and CI validation call the same repository-owned quality command.
+
 ## Boundaries
 
 - Views render state and send user intent; they should not own persistence rules.

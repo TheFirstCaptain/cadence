@@ -6,6 +6,9 @@
 - Local-only SwiftData behind a repository/service boundary.
 - A versioned, CloudKit-compatible schema with app-generated UUIDs, optional relationships, explicit inverses where needed, and no persistence-level unique constraints.
 - In-memory SwiftData configurations for automated tests.
+- Swift Testing for domain, repository, calendar, aggregation, migration, and failure-path coverage.
+- XCTest UI for complete product workflows.
+- Injected clock and calendar dependencies for deterministic date tests.
 - Small feature-focused views supported by reusable components and services.
 - No Xcode project will be created until explicitly approved.
 
@@ -57,6 +60,5 @@
 
 ## Decisions to make before project creation
 
-- Final bundle identifier and development team.
-- Swift Testing and XCTest UI test structure.
+- Select the user's Apple development team in Xcode automatic signing.
 - Formatting, linting, documentation validation, and `Scripts/quality.sh` contents.
