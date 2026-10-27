@@ -18,7 +18,7 @@
 ## Proposed source organization
 
 - `App/` — app entry point, navigation, and shared app state.
-- `Models/` — weekly plans, Goals, checkoffs, iCheated categories, and indulgence occurrences.
+- `Models/` — weekly plans, Goals, checkoffs, iIndulged categories, and indulgence occurrences.
 - `Views/` — My Day, My Goals, and History screens and flows.
 - `Components/` — reusable controls, cards, progress indicators, and empty states.
 - `Services/` — persistence, date/week calculations, and later integrations.
@@ -41,13 +41,13 @@
 - Build Sunday Planning in My Goals for the upcoming Monday-through-Sunday week.
 - Support Daily, Weekly, and Custom 2–6-times-per-week frequencies.
 - Carry Goals forward and preserve History across midweek changes.
-- Build My Day with Goals first and iCheated second.
+- Build My Day with Goals first and iIndulged second.
 - Separate Daily Goals into Today and Weekly or Custom Goals into This Week.
 - Add the first-run Goals empty state, manual ordering, Apple-style symbols, and quiet accessible feedback.
 - Build today's one-tap goal checkoff experience.
 - Add a simple weekly progress summary.
 
-### 3. iCheated expansion
+### 3. iIndulged expansion
 
 - Validate the initial five-category quick-log flow.
 - Add custom indulgence types when separately approved.
@@ -56,7 +56,7 @@
 ### 4. History
 
 - Build current and prior Week views, calendar Month summaries, and day details.
-- Show completed-of-target Goal counts and neutral iCheated totals without percentages or comparisons.
+- Show completed-of-target Goal counts and neutral iIndulged totals without percentages or comparisons.
 - Support reversible historical corrections and stable original local dates.
 
 ### 5. Polish and validation

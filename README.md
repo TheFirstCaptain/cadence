@@ -10,7 +10,7 @@ Cadence is designed around four simple experiences:
 
 - **Sunday Planning:** set a small, realistic plan for the coming week.
 - **Daily checkoffs:** mark today's Goals complete with one tap.
-- **iCheated:** quickly record an indulgence occurrence without guilt or moral scoring.
+- **iIndulged:** quickly record something you chose to enjoy, without guilt or moral scoring, so repeated patterns remain easy to notice.
 - **History:** notice useful patterns through simple weekly and daily review.
 
 The app is intended to be private and local-first. Punitive streaks, leaderboards, calorie counting, medical claims, and social competition are outside the initial product direction.

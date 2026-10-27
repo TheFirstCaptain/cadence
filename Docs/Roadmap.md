@@ -12,14 +12,14 @@
 ## Phase 1: My Day foundation
 
 - Open the app to My Day.
-- Show today's Goals first and iCheated second.
+- Show today's Goals first and iIndulged second.
 - Separate Daily Goals under Today and flexible Goals under This Week.
-- Provide a first-run empty Goals invitation without blocking iCheated.
+- Provide a first-run empty Goals invitation without blocking iIndulged.
 - Complete or undo a Goal checkoff in one tap.
-- Record or remove an iCheated occurrence with one tap.
+- Record or remove an iIndulged occurrence with one tap.
 - Show quiet weekly progress without punitive streaks.
 
-## Phase 2: My Goals and iCheated expansion
+## Phase 2: My Goals and iIndulged expansion
 
 - Create and edit a small Monday-through-Sunday weekly plan in My Goals.
 - Support Daily, Weekly, and 2–6-times-per-week Custom frequencies.
@@ -31,7 +31,7 @@
 ## Phase 3: History
 
 - Open to the current week and browse prior Week and calendar Month views.
-- Show plain Goal progress and neutral iCheated counts without percentages or comparisons.
+- Show plain Goal progress and neutral iIndulged counts without percentages or comparisons.
 - Drill into day details and correct personal records with reversible deletion.
 - Preserve stable original local dates across time-zone changes.
 

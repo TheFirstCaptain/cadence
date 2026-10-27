@@ -5,18 +5,18 @@ These are product-level scenarios. Feature records should add narrower validatio
 ## My Day
 
 1. When the user opens Cadence, then the app opens to My Day.
-2. My Day presents Goals before iCheated.
+2. My Day presents Goals before iIndulged.
 3. Given a Goal scheduled for today, when the user taps it, then it becomes complete and remains visible.
 4. Given a completed Goal, when the user taps it again, then its checkoff is removed.
-5. Each iCheated category displays an icon, type, minus control, today's count, and plus control.
+5. Each iIndulged category displays an icon, type, minus control, today's count, and plus control.
 6. When the user taps plus, then today's count increases by one and a date-and-time occurrence is stored.
 7. When the user taps minus, then the most recent occurrence for that category today is removed and the count decreases by one.
-8. An iCheated count cannot fall below zero.
+8. An iIndulged count cannot fall below zero.
 9. My Day uses the device's local calendar to determine today.
 10. Daily Goals appear under Today; Weekly and Custom Goals appear under This Week.
 11. A Weekly Goal remains available until checked once, then remains visible as 1 of 1 for the rest of the week.
 12. A Custom Goal remains available on later days until its target is met, accepts at most one checkoff per day, and remains visible with completed progress afterward.
-13. On first launch with no Goals, My Day offers a clear route to My Goals while iCheated remains usable.
+13. On first launch with no Goals, My Day offers a clear route to My Goals while iIndulged remains usable.
 14. Goal rows preserve the manual order from My Goals within their respective My Day groups.
 
 ## Weekly planning
@@ -41,7 +41,7 @@ These are product-level scenarios. Feature records should add narrower validatio
 2. Given an accidental checkoff, when the user reverses it, then the original state is restored without penalty.
 3. Given missed Goals, when the user returns, then the app remains welcoming and does not display a broken-streak warning.
 
-## iCheated
+## iIndulged
 
 1. My Day initially offers Junk Food, Unhealthy Snacks, Candy, Alcohol, and Desserts.
 2. One plus tap represents one occurrence rather than a serving or precise quantity.
@@ -52,15 +52,15 @@ These are product-level scenarios. Feature records should add narrower validatio
 
 1. When the user opens History, then the current Monday-through-Sunday Week view appears.
 2. Goal progress uses plain counts such as 5 of 7 without percentages.
-3. Every iCheated category remains visible, including categories with a zero count, and no previous-period comparison appears.
-4. Week view shows daily Goal checkoffs and daily iCheated distribution; tapping a day opens its details.
-5. Month view uses a calendar month, totals iCheated occurrences dated in that month, and shows compact full-week Goal rows without splitting a weekly target at the month boundary.
+3. Every iIndulged category remains visible, including categories with a zero count, and no previous-period comparison appears.
+4. Week view shows daily Goal checkoffs and daily iIndulged distribution; tapping a day opens its details.
+5. Month view uses a calendar month, totals iIndulged occurrences dated in that month, and shows compact full-week Goal rows without splitting a weekly target at the month boundary.
 6. The user may navigate to prior weeks and months without an artificial limit, may not navigate into future periods, and can return through Today.
-7. Day detail shows Goal checkoffs and individual iCheated occurrences with their recorded times.
+7. Day detail shows Goal checkoffs and individual iIndulged occurrences with their recorded times.
 8. A past Goal checkoff may be added or removed only when the Goal was active on that date.
-9. A past iCheated occurrence may be removed individually and restored through a temporary Undo action.
+9. A past iIndulged occurrence may be removed individually and restored through a temporary Undo action.
 10. Historical corrections immediately update all affected summaries.
-11. History never combines Goals and iCheated into one score or converts behavior into moral or competitive rankings.
+11. History never combines Goals and iIndulged into one score or converts behavior into moral or competitive rankings.
 
 ## Data and time
 
@@ -87,7 +87,7 @@ These are product-level scenarios. Feature records should add narrower validatio
 13. Simulator build and tests do not require a personal signing team, certificate, or provisioning profile.
 14. Historical records retain captured Gregorian local-date components, time-zone identifier, and UTC offset after travel or time-zone rule changes.
 15. Prior-week Goal snapshots remain unchanged after active-week edits; active-week renames and frequency changes consistently update that entire active week.
-16. Built-in iCheated category seeding is idempotent and uses stable app-defined UUIDs.
+16. Built-in iIndulged category seeding is idempotent and uses stable app-defined UUIDs.
 17. Repository transactions reject duplicate plans, normalized duplicate Goal names, duplicate daily checkoffs, invalid frequency targets, and checkoffs outside active intervals without partial writes.
 
 ## Accessibility and privacy

@@ -7,7 +7,7 @@ Cadence should feel calm, clear, supportive, and occasionally playful. It is a c
 ## Principles
 
 1. **Consistency over perfection.** Show patterns and progress without treating a missed action as failure.
-2. **Awareness without judgment.** Use neutral language for indulgences and changing plans.
+2. **Awareness without judgment.** Occasional indulgence is a normal part of life. Use neutral language that helps the user notice frequency and patterns without labeling an individual choice as bad.
 3. **Planning without rigidity.** Make weekly intentions easy to revise as life changes.
 4. **Tracking without effort.** Prefer one-tap completion and very short logging flows.
 
@@ -16,7 +16,7 @@ Cadence should feel calm, clear, supportive, and occasionally playful. It is a c
 - Use muted greens, soft blues, and warm neutrals.
 - Favor clean SwiftUI typography and generous spacing.
 - Use simple progress rings, bars, or a subtle rhythm/wave motif.
-- Use simple monochrome Apple-style symbols for iCheated categories; pair every symbol with text and an accessibility label.
+- Use simple monochrome Apple-style symbols for iIndulged categories; pair every symbol with text and an accessibility label.
 - Keep animation gentle and purposeful.
 - Maintain strong contrast and support Dynamic Type and VoiceOver.
 
@@ -31,7 +31,7 @@ Cadence should feel calm, clear, supportive, and occasionally playful. It is a c
 
 Keep the primary structure small and predictable:
 
-- **My Day:** Today's Goals first, followed by fast iCheated occurrence logging.
+- **My Day:** Today's Goals first, followed by fast iIndulged occurrence logging.
 - **My Goals:** Weekly intention-setting and Goal management.
 - **History:** Simple review of past plans, checkoffs, and indulgences.
 

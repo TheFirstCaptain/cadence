@@ -16,7 +16,7 @@ Cadence is implementing its project foundation. The Xcode project shell, app ent
 ## Responsibilities
 
 - `App/`: composition root, navigation, dependency setup, scene lifecycle.
-- `Models/`: immutable weekly plan boundaries, Goals and their frequencies, checkoffs, iCheated categories, and indulgence occurrences.
+- `Models/`: immutable weekly plan boundaries, Goals and their frequencies, checkoffs, iIndulged categories, and indulgence occurrences.
 - `Views/`: the three primary tabs My Day, My Goals, and History; focused sheets and drill-down details.
 - `Components/`: reusable controls and visual building blocks without feature ownership.
 - `Services/`: persistence adapters, calendar/week calculations, notifications, and future integrations.
@@ -39,7 +39,7 @@ Cadence is implementing its project foundation. The Xcode project shell, app ent
 - Each Monday-through-Sunday plan owns week-specific Goal snapshots. Carry-forward creates a new planned record with a stable lineage identifier rather than mutating one Goal across weeks.
 - Renames and frequency changes relabel and recalculate the entire active week, including earlier active-week days; prior weeks remain unchanged.
 - Removing a Goal ends its active interval instead of physically deleting the data required by History.
-- The five built-in iCheated categories use fixed app-defined UUIDs and idempotent seeding. Future removal archives a category rather than orphaning History.
+- The five built-in iIndulged categories use fixed app-defined UUIDs and idempotent seeding. Future removal archives a category rather than orphaning History.
 - Persistence is serialized through one actor-backed SwiftData store. SwiftData models and `ModelContext` never cross that isolation boundary.
 - Repositories return immutable Sendable domain snapshots and are separated by responsibility: planning, daily tracking, and History.
 

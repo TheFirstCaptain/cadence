@@ -24,7 +24,7 @@ People who want gentle structure for everyday wellness but find conventional hab
 
 - Plan a realistic week on Sunday.
 - Check off today's Goals quickly.
-- Log an indulgence occurrence through iCheated without shame.
+- Log an indulgence occurrence through iIndulged without shame. Enjoying something occasionally is not a failure; the value comes from noticing when a pattern no longer feels occasional.
 - Review simple history to notice patterns over time.
 
 ## Measures of success
