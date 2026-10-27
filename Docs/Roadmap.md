@@ -9,6 +9,8 @@
 - Create the Xcode project only after explicit approval.
 - Add one authoritative local quality command and matching GitHub Actions workflow.
 
+Foundation implementation is delivered as five slices, F-002A through F-002E. F-002E first establishes the local quality baseline; domain/calendar, schema, repository, and three-tab shell slices follow; F-002E then finishes hosted CI and complete regression-guard coverage before the F-002 integration closeout.
+
 ## Phase 1: My Day foundation
 
 - Open the app to My Day.

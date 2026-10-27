@@ -28,13 +28,15 @@
 
 ### 1. Foundation
 
-- Create one iOS 27 project with Cadence, CadenceTests, and CadenceUITests targets plus a shared scheme.
-- Establish iPhone portrait settings, three-tab placeholder shell, bundle identity, simulator-safe signing, and Swift 6 concurrency checking.
-- Add domain date/ID/frequency values and deterministic time dependencies with boundary tests.
-- Add Schema V1, migration-plan declaration, production and in-memory container factories, and idempotent built-in category seeding.
-- Add the actor-backed store and focused repository protocols with invariant and persistence tests.
-- Add launch/navigation UI smoke coverage, Apple formatting checks, architecture/project-policy checks, `Scripts/quality.sh --fast`, the full `Scripts/quality.sh` gate, and matching pull-request, protected-branch, and weekly GitHub Actions runs.
-- Add negative fixtures proving each harness guard rejects a representative violation, and ratchet every later drift class into a permanent regression check.
+- **F-002 project shell:** Create one iOS 27 project with Cadence, CadenceTests, and CadenceUITests targets plus a shared scheme; establish bundle identity, simulator-safe signing, Swift 6 concurrency checking, and iPhone portrait settings. The initial shell is complete.
+- **F-002E quality baseline:** First establish a viable authoritative local fast and full gate for the current project shell. Keep this slice active as later work expands its coverage.
+- **F-002A domain and calendar:** Add domain date, identity, and frequency values plus deterministic clock, calendar, time-zone, and UUID dependencies with boundary tests.
+- **F-002B SwiftData schema:** Add Schema V1, its migration-plan declaration, production and in-memory container factories, and idempotent built-in category seeding.
+- **F-002C repositories:** Add the actor-backed store and focused repository protocols with transaction-invariant and persistence tests.
+- **F-002D application shell:** Add the three-tab placeholder interface and launch, default-tab, and navigation UI smoke coverage.
+- **F-002E quality completion:** Finish Apple formatting checks, architecture and project-policy checks, and matching pull-request, protected-branch, and weekly GitHub Actions runs after the other slices expose their final files and tests.
+- **F-002E regression guards:** Add negative fixtures proving each harness guard rejects a representative violation, and ratchet every later drift class into a permanent regression check.
+- **F-002 integration closeout:** Perform final Tier 3 review, accessibility validation, full-gate evidence capture, and documentation reconciliation after F-002A through F-002E are done.
 
 ### 2. My Day and My Goals
 
