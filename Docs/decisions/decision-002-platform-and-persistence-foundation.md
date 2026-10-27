@@ -10,7 +10,7 @@ The initial development Mac had Xcode 26.4.1 and the iOS 26.4 SDK installed. The
 
 Cadence V1 is an iPhone-only, portrait-only SwiftUI application with a minimum deployment target of iOS 27.0.
 
-The project and display name are Cadence, the bundle identifier is `com.thefirstcaptain.cadence`, and Xcode automatic signing uses the user's selected Apple development team.
+The project and display name are Cadence, the bundle identifier is `com.kirkgartside.cadence`, and Xcode automatic signing uses the user's selected Apple development team. The initially approved `com.thefirstcaptain.cadence` identifier was unavailable to the selected team during Xcode registration, so the account-specific identifier was adopted before implementation.
 
 V1 uses SwiftData for local-only persistence behind repository/service interfaces. Production explicitly configures CloudKit synchronization as disabled, and automated tests use in-memory storage.
 

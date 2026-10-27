@@ -2,7 +2,7 @@
 
 ## Current state
 
-Cadence is in documentation and project-foundation planning. No Xcode project or production code exists yet.
+Cadence is implementing its project foundation. The Xcode project shell, app entry point, template view, unit-test target, and UI-test target now exist; product features and persistence remain to be implemented.
 
 ## Intended platform
 
@@ -24,7 +24,7 @@ Cadence is in documentation and project-foundation planning. No Xcode project or
 ## Project identity and testing
 
 - Product and display name: Cadence.
-- Bundle identifier: `com.thefirstcaptain.cadence`.
+- Bundle identifier: `com.kirkgartside.cadence`.
 - Signing: automatic, using the user's selected Apple development team.
 - Swift Testing: domain models, repositories, calendar logic, aggregation, migrations, and failure paths.
 - XCTest UI in F-002: launch, default-tab, and three-tab navigation smoke coverage. Complete workflows belong to F-003 through F-005.

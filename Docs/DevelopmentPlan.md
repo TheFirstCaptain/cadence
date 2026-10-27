@@ -13,7 +13,7 @@
 - Gregorian civil-date domain values with fixed Monday-through-Sunday week calculations.
 - One actor-backed SwiftData store implementing focused planning, daily-tracking, and History repository protocols.
 - Small feature-focused views supported by reusable components and services.
-- No Xcode project will be created until explicitly approved.
+- Project creation began only after the user explicitly approved F-002 and later authorized the Xcode walkthrough.
 
 ## Proposed source organization
 
@@ -65,7 +65,7 @@
 - Test week boundaries, Sunday planning, edits, and data persistence.
 - Validate that core actions remain fast and the tone stays supportive.
 
-## Decisions to make before project creation
+## Remaining local setup
 
-- Select the user's Apple development team in Xcode automatic signing.
-- Confirm the default `iPhone 17 Pro` / latest iOS 27 simulator destination is installed; otherwise set `CADENCE_DESTINATION` to an available iPhone simulator.
+- The selected Apple development team has no registered physical device, so device provisioning remains deferred and simulator validation disables signing.
+- The default destination is `platform=iOS Simulator,name=iPhone 17,OS=latest`, which currently resolves locally to iOS 27.0. Other machines and CI set `CADENCE_DESTINATION` when that compatible device type is unavailable.
