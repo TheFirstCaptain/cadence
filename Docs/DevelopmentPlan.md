@@ -31,8 +31,8 @@
 - **F-002 project shell:** Create one iOS 27 project with Cadence, CadenceTests, and CadenceUITests targets plus a shared scheme; establish bundle identity, simulator-safe signing, Swift 6 concurrency checking, and iPhone portrait settings. The initial shell is complete.
 - **F-002E quality baseline:** First establish a viable authoritative local fast and full gate for the current project shell. Keep this slice active as later work expands its coverage.
 - **F-002A domain and calendar:** Complete. Added domain date, identity, and frequency values plus deterministic clock, calendar, time-zone, and UUID dependencies with boundary tests.
-- **F-002B SwiftData schema:** Add Schema V1, its migration-plan declaration, production and in-memory container factories, and idempotent built-in category seeding.
-- **F-002C repositories:** Add the actor-backed store and focused repository protocols with transaction-invariant and persistence tests.
+- **F-002B SwiftData schema:** Complete. Added Schema V1, its migration-plan declaration, production and in-memory container factories, idempotent built-in category seeding, and persistence regression tests.
+- **F-002C repositories:** Complete. Added the actor-backed store, focused repository protocols, immutable snapshots, and transaction, concurrency, rollback, and reopen tests.
 - **F-002D application shell:** Add the three-tab placeholder interface and launch, default-tab, and navigation UI smoke coverage.
 - **F-002E quality completion:** Finish Apple formatting checks, architecture and project-policy checks, and matching pull-request, protected-branch, and weekly GitHub Actions runs after the other slices expose their final files and tests.
 - **F-002E regression guards:** Add negative fixtures proving each harness guard rejects a representative violation, and ratchet every later drift class into a permanent regression check.

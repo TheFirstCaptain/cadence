@@ -117,6 +117,24 @@ if grep -R -n --include='*.swift' 'TimeZone\.autoupdatingCurrent' Models Service
   fail "domain and service code must capture a time-zone snapshot instead of retaining an auto-updating zone"
 fi
 
+persistence_root="Services/Persistence"
+require_file "$persistence_root/CadenceModelContainerFactory.swift"
+require_text "$persistence_root/CadenceModelContainerFactory.swift" 'cloudKitDatabase: .none'
+if grep -R -n --include='*.swift' -E '@Attribute\([^)]*\.unique|deleteRule:[[:space:]]*\.(cascade|deny)' "$persistence_root"; then
+  fail "Schema V1 must use repository-owned uniqueness and nullifying relationships"
+fi
+if grep -R -n --include='*.swift' -E 'cloudKitDatabase:[[:space:]]*\.(automatic|private)' App Components Models Services Views; then
+  fail "SwiftData CloudKit must remain explicitly disabled in V1"
+fi
+
+if grep -R -n --include='*.swift' '^import SwiftData$' App Components Models Views Services/Repositories; then
+  fail "SwiftData imports must remain inside Services/Persistence and persistence tests"
+fi
+if grep -R -n --include='*.swift' -E '@Query|ModelContext|ModelContainer|PersistentIdentifier|PersistentModel|[A-Za-z]+Record' Views Components Services/Repositories; then
+  fail "views, components, and repository protocols must not expose SwiftData details"
+fi
+require_text "Services/Persistence/CadenceStore.swift" '@ModelActor'
+
 echo "policy: checking Markdown links"
 ruby -e '
   files = Dir["{README.md,Docs/**/*.md}"]

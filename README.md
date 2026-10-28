@@ -19,17 +19,17 @@ The app is intended to be private and local-first. Punitive streaks, leaderboard
 
 Cadence is in its development-foundation phase. Its three-tab product skeleton—My Day, My Goals, and History—along with design principles, architecture boundaries, acceptance tests, and agentic coding workflow is documented. The initial iPhone project shell is now building and passing its launch smoke test; product features have not been implemented yet.
 
-The active foundation milestone is [F-002: iOS Project Foundation](Docs/features/F-002.md). Its implementation is divided into five focused slices covering domain and calendar logic, SwiftData Schema V1, repositories, the three-tab shell, and quality/CI tooling. The local quality baseline and [F-002A domain/calendar foundation](Docs/features/F-002A.md) are complete; SwiftData Schema V1 is next. Cadence targets iPhone in portrait on iOS 27 and will use local-only SwiftData behind an isolated repository layer with a CloudKit-compatible schema.
+The active foundation milestone is [F-002: iOS Project Foundation](Docs/features/F-002.md). Its implementation is divided into five focused slices covering domain and calendar logic, SwiftData Schema V1, repositories, the three-tab shell, and quality/CI tooling. The local quality baseline, [F-002A domain/calendar foundation](Docs/features/F-002A.md), [F-002B SwiftData schema](Docs/features/F-002B.md), and [F-002C repository boundary](Docs/features/F-002C.md) are complete; the three-tab application shell is next. Cadence targets iPhone in portrait on iOS 27 and uses local-only SwiftData behind an isolated repository layer with a CloudKit-compatible schema.
 
 ## Repository layout
 
 ```text
 Cadence/
 ├── App/          App entry point, navigation, and shared state
-├── Models/       Domain and persistence models
+├── Models/       Immutable domain values
 ├── Views/        Feature screens and flows
 ├── Components/   Reusable presentation components
-├── Services/     Persistence, calendar logic, and integrations
+├── Services/     Persistence records/adapters, calendar logic, and integrations
 ├── Tests/        Swift Testing and XCTest UI targets
 ├── Cadence.xcodeproj/  Shared native project and scheme
 └── Docs/         Product direction, architecture, tracked work, and decisions
