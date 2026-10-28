@@ -2,7 +2,7 @@
 
 ## Current state
 
-Cadence is implementing its project foundation as five slices, F-002A through F-002E. The Xcode project shell, app entry point, template view, unit-test target, and UI-test target exist. F-002E's local quality baseline is the first active slice; domain/calendar values, persistence, repositories, the three-tab shell, and complete CI enforcement remain to be implemented.
+Cadence is implementing its project foundation as five slices, F-002A through F-002E. The Xcode project shell and local quality baseline exist, and F-002A now provides validated Gregorian civil dates, Monday-through-Sunday week identity, Goal frequencies, and injectable system values. Persistence, repositories, the three-tab shell, and complete CI enforcement remain to be implemented.
 
 ## Intended platform
 

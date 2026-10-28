@@ -109,6 +109,14 @@ if grep -R -n --include='*.swift' '@unchecked[[:space:]]\+Sendable' App Componen
   fail "@unchecked Sendable is forbidden"
 fi
 
+if grep -R -n --include='*.swift' -E '^import (SwiftData|SwiftUI)$' Models; then
+  fail "domain models must not import SwiftData or SwiftUI"
+fi
+
+if grep -R -n --include='*.swift' 'TimeZone\.autoupdatingCurrent' Models Services; then
+  fail "domain and service code must capture a time-zone snapshot instead of retaining an auto-updating zone"
+fi
+
 echo "policy: checking Markdown links"
 ruby -e '
   files = Dir["{README.md,Docs/**/*.md}"]
