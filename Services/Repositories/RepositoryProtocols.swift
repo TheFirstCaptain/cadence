@@ -1,5 +1,9 @@
 import Foundation
 
+nonisolated protocol ApplicationPreparing: Sendable {
+  func prepare() async throws
+}
+
 protocol PlanningRepository: Sendable {
   func plan(for week: WeekID) async throws -> WeeklyPlanSnapshot?
   func ensurePlan(for week: WeekID) async throws -> WeeklyPlanSnapshot

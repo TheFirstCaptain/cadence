@@ -89,6 +89,7 @@ These are product-level scenarios. Feature records should add narrower validatio
 15. Prior-week Goal snapshots remain unchanged after active-week edits; active-week renames and frequency changes consistently update that entire active week.
 16. Built-in iIndulged category seeding is idempotent and uses stable app-defined UUIDs.
 17. Repository transactions reject duplicate plans, normalized duplicate Goal names, duplicate daily checkoffs, invalid frequency targets, and checkoffs outside active intervals without partial writes.
+18. App startup exposes feature content only after the local store is prepared; a preparation failure preserves existing data and offers a non-destructive retry instead of substituting temporary storage.
 
 ## Accessibility and privacy
 

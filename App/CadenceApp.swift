@@ -4,7 +4,7 @@ import SwiftUI
 struct CadenceApp: App {
   var body: some Scene {
     WindowGroup {
-      ContentView()
+      AppBootstrapView()
     }
   }
 }

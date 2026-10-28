@@ -27,7 +27,9 @@ nonisolated struct CadenceStoreDependencies: Sendable {
 }
 
 @ModelActor
-actor CadenceStore: PlanningRepository, DailyTrackingRepository, HistoryRepository {
+actor CadenceStore:
+  ApplicationPreparing, PlanningRepository, DailyTrackingRepository, HistoryRepository
+{
   private var dependencies: CadenceStoreDependencies = .live
 
   init(modelContainer: ModelContainer, dependencies: CadenceStoreDependencies = .live) {

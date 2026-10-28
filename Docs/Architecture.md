@@ -2,7 +2,7 @@
 
 ## Current state
 
-Cadence is implementing its project foundation as five slices, F-002A through F-002E. The Xcode project shell and local quality baseline exist. F-002A provides validated Gregorian civil dates, Monday-through-Sunday week identity, Goal frequencies, and injectable system values. F-002B provides the versioned local-only SwiftData schema, migration declaration, container factories, and fixed built-in iIndulged category seeding. F-002C provides the actor-backed repository and transaction boundary. The three-tab shell and complete CI enforcement remain to be implemented.
+Cadence is implementing its project foundation as five slices, F-002A through F-002E. The Xcode project shell and local quality baseline exist. F-002A provides validated Gregorian civil dates, Monday-through-Sunday week identity, Goal frequencies, and injectable system values. F-002B provides the versioned local-only SwiftData schema, migration declaration, container factories, and fixed built-in iIndulged category seeding. F-002C provides the actor-backed repository and transaction boundary. F-002D provides the accessible three-tab shell with My Day selected by default. Complete CI enforcement remains to be implemented.
 
 ## Intended platform
 
@@ -57,7 +57,8 @@ Repository transactions enforce one canonical plan per week, normalized Goal-nam
 
 - One Xcode project with `Cadence`, `CadenceTests`, and `CadenceUITests` targets and a shared scheme.
 - No workspace, internal framework, package split, or third-party dependency initially.
-- `CadenceApp` creates the local ModelContainer, actor-backed store, system time dependencies, and `AppDependencies` composition root.
+- `CadenceApp` owns an asynchronous bootstrap that creates the local ModelContainer, one actor-backed store, live system-value providers, and the `AppDependencies` composition root. Feature content appears only after idempotent store preparation succeeds.
+- Startup failure preserves the local store and presents a calm retry surface. Cadence never silently substitutes in-memory storage, deletes the store, or exposes raw persistence errors.
 - Feature view models are `@MainActor`; views use constructor or environment injection and never import SwiftData for mutation.
 - Swift 6 language mode and complete concurrency checking are enabled. `@unchecked Sendable` is not used to hide isolation problems.
 
