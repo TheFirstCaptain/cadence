@@ -21,6 +21,8 @@ Foundation implementation is delivered as five slices, F-002A through F-002E. F-
 - Record or remove an iIndulged occurrence with one tap.
 - Show quiet weekly progress without punitive streaks.
 
+My Day is delivered as three focused slices: F-003A establishes repository-backed presentation and screen states, F-003B adds Goal completion and correction, and F-003C adds iIndulged quick logging. The umbrella closes with integration and accessibility validation after all three slices are complete.
+
 ## Phase 2: My Goals and iIndulged expansion
 
 - Create and edit a small Monday-through-Sunday weekly plan in My Goals.

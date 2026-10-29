@@ -41,14 +41,13 @@
 
 ### 2. My Day and My Goals
 
+- Establish F-003A's repository-backed My Day presentation, Today/This Week grouping, progress state, ordering, and empty-plan invitation.
+- Add F-003B's one-tap Goal completion and undo with persistence, rollback, relaunch, and accessible feedback.
+- Add F-003C's five built-in iIndulged counters with timestamped plus/minus behavior, final symbols, and accessible feedback.
+- Close the F-003 umbrella through integration review, the manual accessibility matrix, full-gate evidence, and documentation reconciliation.
 - Build Sunday Planning in My Goals for the upcoming Monday-through-Sunday week.
 - Support Daily, Weekly, and Custom 2–6-times-per-week frequencies.
 - Carry Goals forward and preserve History across midweek changes.
-- Build My Day with Goals first and iIndulged second.
-- Separate Daily Goals into Today and Weekly or Custom Goals into This Week.
-- Add the first-run Goals empty state, manual ordering, Apple-style symbols, and quiet accessible feedback.
-- Build today's one-tap goal checkoff experience.
-- Add a simple weekly progress summary.
 
 ### 3. iIndulged expansion
 
