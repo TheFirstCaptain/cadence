@@ -36,4 +36,19 @@ final class CadenceUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["my-day-screen"].waitForExistence(timeout: 5))
     XCTAssertTrue(myDayTab.isSelected)
   }
+
+  @MainActor
+  func testStartupFailureOffersCalmRetryWithoutExposingDetails() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-startup-failure"]
+    app.launch()
+
+    XCTAssertTrue(app.staticTexts["Cadence couldn’t open"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Your data has not been changed. Please try again."].exists)
+    XCTAssertTrue(app.buttons["Try Again"].exists)
+    let rawErrorText = app.staticTexts.matching(
+      NSPredicate(format: "label CONTAINS[c] %@", "error")
+    ).firstMatch
+    XCTAssertFalse(rawErrorText.exists)
+  }
 }

@@ -2,7 +2,7 @@
 
 ## Current state
 
-Cadence is implementing its project foundation as five slices, F-002A through F-002E. The Xcode project shell and local quality baseline exist. F-002A provides validated Gregorian civil dates, Monday-through-Sunday week identity, Goal frequencies, and injectable system values. F-002B provides the versioned local-only SwiftData schema, migration declaration, container factories, and fixed built-in iIndulged category seeding. F-002C provides the actor-backed repository and transaction boundary. F-002D provides the accessible three-tab shell with My Day selected by default. Complete CI enforcement remains to be implemented.
+Cadence is validating its project foundation across five slices, F-002A through F-002E. F-002A provides validated Gregorian civil dates, Monday-through-Sunday week identity, Goal frequencies, and injectable system values. F-002B provides the versioned local-only SwiftData schema, migration declaration, container factories, and fixed built-in iIndulged category seeding. F-002C provides the actor-backed repository and transaction boundary. F-002D provides the accessible three-tab shell with My Day selected by default. F-002E now provides the local quality gate, semantic drift guards, negative fixtures, focused fast scheme, and hosted workflow; its first hosted run remains to be verified.
 
 ## Intended platform
 

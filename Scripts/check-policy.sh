@@ -27,6 +27,10 @@ require_file "App/CadenceApp.swift"
 require_file "Views/ContentView.swift"
 require_file "Tests/CadenceTests/CadenceTests.swift"
 require_file "Tests/CadenceUITests/CadenceUITests.swift"
+require_file "Cadence.xcodeproj/xcshareddata/xcschemes/CadenceFast.xcscheme"
+require_file ".github/workflows/quality.yml"
+require_file "Scripts/check-destination.sh"
+require_file "Scripts/verify-result-bundles.sh"
 
 project_file="Cadence.xcodeproj/project.pbxproj"
 scheme_file="Cadence.xcodeproj/xcshareddata/xcschemes/Cadence.xcscheme"
@@ -172,5 +176,13 @@ ruby -e '
   end
   abort(failures.join("\n")) unless failures.empty?
 '
+
+echo "policy: checking static architecture, membership, documentation, and CI policy"
+ruby Scripts/check-static-policy.rb .
+
+if [[ "${CADENCE_SKIP_POLICY_FIXTURES:-0}" != "1" ]]; then
+  echo "policy: proving representative negative fixtures"
+  CADENCE_SKIP_POLICY_FIXTURES=1 Scripts/test-policy.sh
+fi
 
 echo "policy: passed"
