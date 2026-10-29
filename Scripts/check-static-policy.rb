@@ -148,4 +148,12 @@ full_gate = 'Scripts/quality.sh 2>&1 | tee "$CADENCE_ARTIFACT_ROOT/quality.log"'
 fail_policy("CI must invoke the authoritative full quality command exactly once") unless quality_invocations.count(full_gate) == 1
 fail_policy("CI must retain quality artifacts on failure") unless workflow.include?("if: failure()") && workflow.include?("CADENCE_KEEP_ARTIFACTS: 1")
 
+result_verifier = read(root, "Scripts/verify-result-bundles.sh")
+unless result_verifier.include?('xcresulttool get test-results summary --path "$2"')
+  fail_policy("result-bundle verification must extract the test summary from Tests.xcresult")
+end
+unless result_verifier.include?('Scripts/verify-test-summary.rb "$test_summary"')
+  fail_policy("result-bundle verification must enforce the extracted test summary")
+end
+
 puts "policy: static checks passed"

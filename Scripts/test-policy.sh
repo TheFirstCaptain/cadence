@@ -125,7 +125,15 @@ expect_command_failure unknown-quality-mode "quality: unknown mode" Scripts/qual
 
 missing_results="$fixture_root/missing-results"
 mkdir -p "$missing_results"
-expect_command_failure result-bundle-check "result bundle was not created" Scripts/verify-result-bundles.sh "$missing_results/Build.xcresult"
+expect_command_failure result-bundle-check "result bundle was not created" Scripts/verify-result-bundles.sh "$missing_results/Build.xcresult" "$missing_results/Tests.xcresult"
+
+failed_summary="$fixture_root/failed-test-summary.json"
+ruby -rjson -e 'File.write(ARGV.fetch(0), JSON.generate({result: "Failed", failedTests: 2, totalTestCount: 3, testFailures: [{testName: "CadenceUITests.testAppLaunchesWithMyDaySelected()"}]}))' "$failed_summary"
+expect_command_failure result-bundle-failure "test result bundle did not pass" Scripts/verify-test-summary.rb "$failed_summary"
+
+fixture="$(make_fixture result-bundle-wiring)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!(%q{Scripts/verify-test-summary.rb "$test_summary"}, %q{echo "summary ignored"}); File.write(path, text)' "$fixture/Scripts/verify-result-bundles.sh"
+expect_failure result-bundle-wiring "result-bundle verification must enforce the extracted test summary"
 
 destination_artifacts="$fixture_root/destination"
 mkdir -p "$destination_artifacts"

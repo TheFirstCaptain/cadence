@@ -10,4 +10,4 @@ Before resolving a bug, confirm it, add a regression test where practical, make 
 
 | ID | Title | Status | Priority | Bug document | Last updated | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| — | No tracked bugs | — | — | — | 2026-10-24 | Add the first bug as B-001. |
+| B-001 | Hosted quality run masked UI test failures | Validating | P1 | [B-001.md](./B-001.md) | 2026-10-29 | Result-summary enforcement, production-wiring guard, independent review, and the 37-test local full gate pass; trustworthy hosted rerun remains. |
