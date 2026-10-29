@@ -143,10 +143,14 @@ fail_policy("CI job-level environment must not use the step-only runner context"
   fail_policy("CI workflow is missing #{trigger} trigger") unless workflow.match?(/^\s*#{trigger}:/)
 end
 fail_policy("CI workflow must validate pushes to main") unless workflow.match?(/push:.*?branches:\s*\[main\]/m)
-quality_invocations = workflow.scan(/^\s*run:\s*(.+)$/).flatten
 full_gate = 'Scripts/quality.sh 2>&1 | tee "$CADENCE_ARTIFACT_ROOT/quality.log"'
+quality_invocations = workflow.lines.map(&:strip)
 fail_policy("CI must invoke the authoritative full quality command exactly once") unless quality_invocations.count(full_gate) == 1
+fail_policy("CI quality log pipeline must propagate gate failures") unless workflow.match?(/run:\s*\|\s*\n\s*set -o pipefail\s*\n\s*#{Regexp.escape(full_gate)}/)
 fail_policy("CI must retain quality artifacts on failure") unless workflow.include?("if: failure()") && workflow.include?("CADENCE_KEEP_ARTIFACTS: 1")
+artifact_root = workflow[/^      CADENCE_ARTIFACT_ROOT:\s*(.+)$/, 1]
+upload_path = workflow[/^          path:\s*(.+)$/, 1]
+fail_policy("CI failure upload path must match CADENCE_ARTIFACT_ROOT") unless artifact_root && upload_path == artifact_root
 
 result_verifier = read(root, "Scripts/verify-result-bundles.sh")
 unless result_verifier.include?('xcresulttool get test-results summary --path "$2"')

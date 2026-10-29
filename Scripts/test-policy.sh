@@ -114,8 +114,16 @@ ruby -e 'path = ARGV.fetch(0); text = File.read(path).sub("@ModelActor", ""); Fi
 expect_failure model-actor "missing required text: @ModelActor"
 
 fixture="$(make_fixture ci-parity)"
-ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("run: Scripts/quality.sh", "run: Scripts/quality.sh --fast"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("Scripts/quality.sh 2>&1", "Scripts/quality.sh --fast 2>&1"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
 expect_failure ci-parity "authoritative full quality command exactly once"
+
+fixture="$(make_fixture ci-pipefail)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("          set -o pipefail\n", ""); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
+expect_failure ci-pipefail "CI quality log pipeline must propagate gate failures"
+
+fixture="$(make_fixture ci-artifact-path)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("          path: /tmp/cadence-quality", "          path: /tmp/wrong-quality-path"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
+expect_failure ci-artifact-path "CI failure upload path must match CADENCE_ARTIFACT_ROOT"
 
 fixture="$(make_fixture ci-context)"
 ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("CADENCE_ARTIFACT_ROOT: /tmp/cadence-quality", "CADENCE_ARTIFACT_ROOT: ${{ runner.temp }}/cadence-quality"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"

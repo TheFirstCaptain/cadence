@@ -25,12 +25,14 @@ jobs:
       - name: Prepare evidence directory
         run: mkdir -p "$CADENCE_ARTIFACT_ROOT"
       - name: Run authoritative quality gate
-        run: Scripts/quality.sh 2>&1 | tee "$CADENCE_ARTIFACT_ROOT/quality.log"
+        run: |
+          set -o pipefail
+          Scripts/quality.sh 2>&1 | tee "$CADENCE_ARTIFACT_ROOT/quality.log"
       - name: Upload failure evidence
         if: failure()
         uses: actions/upload-artifact@v5
         with:
           name: cadence-quality-${{ github.run_id }}
-          path: ${{ runner.temp }}/cadence-quality
+          path: /tmp/cadence-quality
           if-no-files-found: warn
           retention-days: 14
