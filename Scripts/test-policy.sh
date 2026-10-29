@@ -117,6 +117,10 @@ fixture="$(make_fixture ci-parity)"
 ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("run: Scripts/quality.sh", "run: Scripts/quality.sh --fast"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
 expect_failure ci-parity "authoritative full quality command exactly once"
 
+fixture="$(make_fixture ci-context)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("CADENCE_ARTIFACT_ROOT: /tmp/cadence-quality", "CADENCE_ARTIFACT_ROOT: ${{ runner.temp }}/cadence-quality"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
+expect_failure ci-context "step-only runner context"
+
 expect_command_failure unknown-quality-mode "quality: unknown mode" Scripts/quality.sh --invalid
 
 missing_results="$fixture_root/missing-results"

@@ -19,7 +19,7 @@ jobs:
     env:
       CADENCE_DESTINATION: platform=iOS Simulator,name=iPhone Duo,OS=latest
       CADENCE_KEEP_ARTIFACTS: 1
-      CADENCE_ARTIFACT_ROOT: ${{ runner.temp }}/cadence-quality
+      CADENCE_ARTIFACT_ROOT: /tmp/cadence-quality
     steps:
       - uses: actions/checkout@v6
       - name: Prepare evidence directory

@@ -137,6 +137,8 @@ trackers.each do |relative, statuses|
 end
 
 workflow = read(root, ".github/workflows/quality.yml")
+job_environment = workflow[/^    env:\n((?:      [A-Z_]+:.*\n)+)/, 1].to_s
+fail_policy("CI job-level environment must not use the step-only runner context") if job_environment.include?("${{ runner.")
 %w[pull_request schedule workflow_dispatch].each do |trigger|
   fail_policy("CI workflow is missing #{trigger} trigger") unless workflow.match?(/^\s*#{trigger}:/)
 end
