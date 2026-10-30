@@ -37,7 +37,7 @@
 - **F-002 application composition:** Complete. Added an app-owned preparing, ready, and failed bootstrap; one production store backs all focused repository interfaces, and non-destructive retry handles container or preparation failure.
 - **F-002E quality completion:** Complete. Apple formatting, architecture and project-policy checks, and matching pull-request, protected-branch, and weekly GitHub Actions policy are validated; push-triggered hosted runs have passed.
 - **F-002E regression guards:** Complete. Representative negative fixtures exercise the harness guards, with later drift classes ratcheted into permanent checks.
-- **F-002 integration closeout:** In review. Accessibility validation, documentation reconciliation, independent Tier 3 review, and the final local full gate are complete; hosted evidence remains.
+- **F-002 integration closeout:** Complete. Accessibility validation, documentation reconciliation, independent Tier 3 review, and local/hosted full gates passed; hosted run `41135991220` validates revision `6c580e57`.
 
 ### 2. My Day and My Goals
 

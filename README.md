@@ -17,9 +17,9 @@ The app is intended to be private and local-first. Punitive streaks, leaderboard
 
 ## Current status
 
-Cadence is closing its development-foundation phase. Its three-tab product skeleton—My Day, My Goals, and History—builds on a versioned local data model, repository boundary, deterministic date services, and a shared local/hosted quality gate. Product workflows have not been implemented yet.
+Cadence has completed its development foundation. Its three-tab product skeleton—My Day, My Goals, and History—builds on a versioned local data model, repository boundary, deterministic date services, and a shared local/hosted quality gate. My Day is the next product-delivery phase.
 
-The active foundation milestone is [F-002: iOS Project Foundation](Docs/features/F-002.md). All five slices—[F-002A domain/calendar foundation](Docs/features/F-002A.md), [F-002B SwiftData schema](Docs/features/F-002B.md), [F-002C repository boundary](Docs/features/F-002C.md), [F-002D application shell](Docs/features/F-002D.md), and [F-002E quality/CI contract](Docs/features/F-002E.md)—are implemented and validated. Only hosted closeout evidence remains before My Day delivery begins with F-003A. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
+[F-002: iOS Project Foundation](Docs/features/F-002.md) and all five slices—[F-002A domain/calendar foundation](Docs/features/F-002A.md), [F-002B SwiftData schema](Docs/features/F-002B.md), [F-002C repository boundary](Docs/features/F-002C.md), [F-002D application shell](Docs/features/F-002D.md), and [F-002E quality/CI contract](Docs/features/F-002E.md)—are complete. My Day delivery begins with F-003A. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
 
 ## Repository layout
 
