@@ -143,6 +143,25 @@ fixture="$(make_fixture result-bundle-wiring)"
 ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!(%q{Scripts/verify-test-summary.rb "$test_summary"}, %q{echo "summary ignored"}); File.write(path, text)' "$fixture/Scripts/verify-result-bundles.sh"
 expect_failure result-bundle-wiring "result-bundle verification must enforce the extracted test summary"
 
+fixture="$(make_fixture simulator-readiness-wiring)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!(%q{Scripts/prepare-simulator.sh "$destination" "$artifact_root"}, %q{echo "simulator readiness skipped"}); File.write(path, text)' "$fixture/Scripts/quality.sh"
+expect_failure simulator-readiness-wiring "full quality gate must prepare the simulator before UI tests"
+
+simulator_fixture="$fixture_root/simulator-readiness-behavior"
+simulator_bin="$simulator_fixture/bin"
+simulator_artifacts="$simulator_fixture/artifacts"
+simulator_calls="$simulator_fixture/calls.log"
+mkdir -p "$simulator_bin" "$simulator_artifacts"
+printf '%s\n' '#!/bin/bash' 'echo "$*" >>"$FAKE_SIMCTL_CALLS"' '[[ "${FAKE_SIMCTL_FAILURE:-0}" != "1" ]]' >"$simulator_bin/xcrun"
+chmod +x "$simulator_bin/xcrun"
+FAKE_SIMCTL_CALLS="$simulator_calls" PATH="$simulator_bin:$PATH" Scripts/prepare-simulator.sh "platform=iOS Simulator,id=fixture-udid" "$simulator_artifacts"
+grep -Fxq 'simctl bootstatus fixture-udid -b' "$simulator_calls" || {
+  echo "policy fixtures: simulator readiness did not request boot-if-needed readiness" >&2
+  exit 1
+}
+expect_command_failure simulator-readiness-failure "simulator did not become ready" env FAKE_SIMCTL_CALLS="$simulator_calls" FAKE_SIMCTL_FAILURE=1 PATH="$simulator_bin:$PATH" Scripts/prepare-simulator.sh "platform=iOS Simulator,id=fixture-udid" "$simulator_artifacts"
+echo "policy fixtures: simulator-readiness behavior passed"
+
 destination_artifacts="$fixture_root/destination"
 mkdir -p "$destination_artifacts"
 expect_command_failure destination-diagnostic "requested destination is unavailable" Scripts/check-destination.sh Cadence.xcodeproj Cadence "platform=iOS Simulator,name=Cadence Missing Device,OS=latest" "$destination_artifacts"

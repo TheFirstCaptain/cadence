@@ -89,6 +89,9 @@ if [[ "$mode" == "fast" ]]; then
     -only-testing:CadenceTests \
     test-without-building
 else
+  echo "quality: preparing simulator for UI automation"
+  Scripts/prepare-simulator.sh "$destination" "$artifact_root"
+
   echo "quality: clean build for all tests"
   xcodebuild "${common_arguments[@]}" clean
   xcodebuild "${common_arguments[@]}" \

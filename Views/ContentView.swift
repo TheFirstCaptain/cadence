@@ -5,30 +5,37 @@ struct ContentView: View {
 
   var body: some View {
     TabView(selection: $selection) {
-      Tab("My Day", systemImage: "sun.max", value: PrimaryTab.myDay) {
+      Tab(value: PrimaryTab.myDay) {
         PlaceholderView(
           title: "My Day",
           message: "Your daily rhythm will appear here.",
           accessibilityIdentifier: "my-day-screen"
         )
+      } label: {
+        Label("My Day", systemImage: "sun.max")
       }
 
-      Tab("My Goals", systemImage: "target", value: PrimaryTab.myGoals) {
+      Tab(value: PrimaryTab.myGoals) {
         PlaceholderView(
           title: "My Goals",
           message: "Your weekly intentions will live here.",
           accessibilityIdentifier: "my-goals-screen"
         )
+      } label: {
+        Label("My Goals", systemImage: "target")
       }
 
-      Tab("History", systemImage: "clock.arrow.circlepath", value: PrimaryTab.history) {
+      Tab(value: PrimaryTab.history) {
         PlaceholderView(
           title: "History",
           message: "Your rhythm over time will appear here.",
           accessibilityIdentifier: "history-screen"
         )
+      } label: {
+        Label("History", systemImage: "clock.arrow.circlepath")
       }
     }
+    .accessibilityIdentifier("app-ready")
   }
 }
 

@@ -30,6 +30,7 @@ require_file "Tests/CadenceUITests/CadenceUITests.swift"
 require_file "Cadence.xcodeproj/xcshareddata/xcschemes/CadenceFast.xcscheme"
 require_file ".github/workflows/quality.yml"
 require_file "Scripts/check-destination.sh"
+require_file "Scripts/prepare-simulator.sh"
 require_file "Scripts/verify-result-bundles.sh"
 
 project_file="Cadence.xcodeproj/project.pbxproj"

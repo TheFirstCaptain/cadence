@@ -153,6 +153,13 @@ upload_path = workflow[/^          path:\s*(.+)$/, 1]
 fail_policy("CI failure upload path must match CADENCE_ARTIFACT_ROOT") unless artifact_root && upload_path == artifact_root
 
 result_verifier = read(root, "Scripts/verify-result-bundles.sh")
+quality_script = read(root, "Scripts/quality.sh")
+readiness_call = 'Scripts/prepare-simulator.sh "$destination" "$artifact_root"'
+ui_test_call = 'test-without-building'
+unless quality_script.scan(readiness_call).length == 1 &&
+    quality_script.index(readiness_call) < quality_script.rindex(ui_test_call)
+  fail_policy("full quality gate must prepare the simulator before UI tests")
+end
 unless result_verifier.include?('xcresulttool get test-results summary --path "$2"')
   fail_policy("result-bundle verification must extract the test summary from Tests.xcresult")
 end
