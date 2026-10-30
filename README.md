@@ -17,9 +17,9 @@ The app is intended to be private and local-first. Punitive streaks, leaderboard
 
 ## Current status
 
-Cadence is in its development-foundation phase. Its three-tab product skeleton—My Day, My Goals, and History—along with design principles, architecture boundaries, acceptance tests, and agentic coding workflow is documented. The initial iPhone project shell is now building and passing its launch smoke test; product features have not been implemented yet.
+Cadence is closing its development-foundation phase. Its three-tab product skeleton—My Day, My Goals, and History—builds on a versioned local data model, repository boundary, deterministic date services, and a shared local/hosted quality gate. Product workflows have not been implemented yet.
 
-The active foundation milestone is [F-002: iOS Project Foundation](Docs/features/F-002.md). Its implementation is divided into five focused slices covering domain and calendar logic, SwiftData Schema V1, repositories, the three-tab shell, and quality/CI tooling. The local quality baseline, [F-002A domain/calendar foundation](Docs/features/F-002A.md), [F-002B SwiftData schema](Docs/features/F-002B.md), [F-002C repository boundary](Docs/features/F-002C.md), production app composition, and [F-002D three-tab application shell](Docs/features/F-002D.md) are complete; hosted CI and the remaining quality-contract guards are next. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
+The active foundation milestone is [F-002: iOS Project Foundation](Docs/features/F-002.md). All five slices—[F-002A domain/calendar foundation](Docs/features/F-002A.md), [F-002B SwiftData schema](Docs/features/F-002B.md), [F-002C repository boundary](Docs/features/F-002C.md), [F-002D application shell](Docs/features/F-002D.md), and [F-002E quality/CI contract](Docs/features/F-002E.md)—are implemented and validated. Only hosted closeout evidence remains before My Day delivery begins with F-003A. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
 
 ## Repository layout
 

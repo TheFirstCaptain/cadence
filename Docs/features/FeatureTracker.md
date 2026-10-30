@@ -10,7 +10,7 @@ Use one outcome-oriented record per coherent capability. Keep implementation det
 | --- | --- | --- | --- | --- | --- | --- |
 | F-001 | Agentic Coding Harness | Complete | Done | [F-001.md](./F-001.md) | 2026-10-30 | Added documentation-impact assessment, same-change reconciliation checkpoints, template prompts, and deterministic policy guards. |
 | F-001A | Repository README | Complete | Done | [F-001A.md](./F-001A.md) | 2026-10-24 | Added a public project overview, current status, documentation map, and contributor orientation. |
-| F-002 | iOS Project Foundation | Active | Validating | [F-002.md](./F-002.md) | 2026-10-30 | All five delivery slices are complete; manual accessibility and final integration documentation closeout remain. |
+| F-002 | iOS Project Foundation | Active | Reviewing | [F-002.md](./F-002.md) | 2026-10-30 | All five slices, accessibility matrix, V-007 coverage, documentation reconciliation, independent review, and final local gate are complete; hosted evidence remains. |
 | F-002A | Domain and Calendar Foundation | Complete | Done | [F-002A.md](./F-002A.md) | 2026-10-27 | Added validated civil dates and weeks, Goal frequencies, injected system values, and DST, travel, rollover, and decoding tests. |
 | F-002B | SwiftData Schema V1 | Complete | Done | [F-002B.md](./F-002B.md) | 2026-10-28 | Added Schema V1, local-only container factories, migration declaration, fixed built-ins, rollback-safe seeding, and persistence tests. |
 | F-002C | Repository and Persistence Boundary | Complete | Done | [F-002C.md](./F-002C.md) | 2026-10-28 | Added the ModelActor store, focused repositories, immutable snapshots, transaction invariants, rollback, concurrency, and reopen tests. |

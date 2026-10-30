@@ -29,15 +29,15 @@
 ### 1. Foundation
 
 - **F-002 project shell:** Create one iOS 27 project with Cadence, CadenceTests, and CadenceUITests targets plus a shared scheme; establish bundle identity, simulator-safe signing, Swift 6 concurrency checking, and iPhone portrait settings. The initial shell is complete.
-- **F-002E quality baseline:** First establish a viable authoritative local fast and full gate for the current project shell. Keep this slice active as later work expands its coverage.
+- **F-002E quality baseline:** Complete. Established authoritative local fast and full gates and expanded their shared policy coverage with each foundation slice.
 - **F-002A domain and calendar:** Complete. Added domain date, identity, and frequency values plus deterministic clock, calendar, time-zone, and UUID dependencies with boundary tests.
 - **F-002B SwiftData schema:** Complete. Added Schema V1, its migration-plan declaration, production and in-memory container factories, idempotent built-in category seeding, and persistence regression tests.
 - **F-002C repositories:** Complete. Added the actor-backed store, focused repository protocols, immutable snapshots, and transaction, concurrency, rollback, and reopen tests.
 - **F-002D application shell:** Complete. Added the three-tab placeholder interface with My Day selected by default plus launch, exact-tab-count, default-tab, and navigation UI smoke coverage.
 - **F-002 application composition:** Complete. Added an app-owned preparing, ready, and failed bootstrap; one production store backs all focused repository interfaces, and non-destructive retry handles container or preparation failure.
-- **F-002E quality completion:** Finish Apple formatting checks, architecture and project-policy checks, and matching pull-request, protected-branch, and weekly GitHub Actions runs after the other slices expose their final files and tests.
-- **F-002E regression guards:** Add negative fixtures proving each harness guard rejects a representative violation, and ratchet every later drift class into a permanent regression check.
-- **F-002 integration closeout:** Perform final Tier 3 review, accessibility validation, full-gate evidence capture, and documentation reconciliation after F-002A through F-002E are done.
+- **F-002E quality completion:** Complete. Apple formatting, architecture and project-policy checks, and matching pull-request, protected-branch, and weekly GitHub Actions policy are validated; push-triggered hosted runs have passed.
+- **F-002E regression guards:** Complete. Representative negative fixtures exercise the harness guards, with later drift classes ratcheted into permanent checks.
+- **F-002 integration closeout:** In review. Accessibility validation, documentation reconciliation, independent Tier 3 review, and the final local full gate are complete; hosted evidence remains.
 
 ### 2. My Day and My Goals
 
