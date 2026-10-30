@@ -8,7 +8,7 @@ Use one outcome-oriented record per coherent capability. Keep implementation det
 
 | ID | Title | Status | Phase | Feature document | Last updated | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| F-001 | Agentic Coding Harness | Complete | Done | [F-001.md](./F-001.md) | 2026-10-24 | Added repository guidance, source-of-truth docs, risk tiers, trackers, templates, and Decision 001. |
+| F-001 | Agentic Coding Harness | Complete | Done | [F-001.md](./F-001.md) | 2026-10-30 | Added documentation-impact assessment, same-change reconciliation checkpoints, template prompts, and deterministic policy guards. |
 | F-001A | Repository README | Complete | Done | [F-001A.md](./F-001A.md) | 2026-10-24 | Added a public project overview, current status, documentation map, and contributor orientation. |
 | F-002 | iOS Project Foundation | Active | Validating | [F-002.md](./F-002.md) | 2026-10-30 | All five delivery slices are complete; manual accessibility and final integration documentation closeout remain. |
 | F-002A | Domain and Calendar Foundation | Complete | Done | [F-002A.md](./F-002A.md) | 2026-10-27 | Added validated civil dates and weeks, Goal frequencies, injected system values, and DST, travel, rollover, and decoding tests. |

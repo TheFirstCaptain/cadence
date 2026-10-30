@@ -82,8 +82,26 @@ ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("PRODUCT_BUNDLE
 expect_command_failure build-setting-configuration "expected PRODUCT_BUNDLE_IDENTIFIER" env CADENCE_SKIP_POLICY_FIXTURES=1 "$fixture/Scripts/check-policy.sh"
 
 fixture="$(make_fixture tracker-consistency)"
-ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("| Active | Building |", "| Active | Flying |"); File.write(path, text)' "$fixture/Docs/features/FeatureTracker.md"
+ruby -e '
+  path = ARGV.fetch(0)
+  lines = File.readlines(path)
+  index = lines.index { |line| line.match?(/^\| F-\d/) }
+  abort("tracker fixture could not find a feature row") unless index
+  cells = lines.fetch(index).split("|", -1)
+  abort("tracker fixture found an unexpected row shape") unless cells.length >= 8
+  cells[4] = " Flying "
+  lines[index] = cells.join("|")
+  File.write(path, lines.join)
+' "$fixture/Docs/features/FeatureTracker.md"
 expect_failure tracker-consistency "unsupported status Flying"
+
+fixture="$(make_fixture documentation-continuity-rule)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); changed = text.sub!("Before implementation, record the documentation impact", "Before implementation, consider the documentation impact"); abort("documentation rule fixture mutation did not apply") unless changed; File.write(path, text)' "$fixture/AGENTS.md"
+expect_failure documentation-continuity-rule "AGENTS.md is missing required text: Before implementation, record the documentation impact"
+
+fixture="$(make_fixture documentation-impact-template)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); changed = text.sub!("## Documentation impact", "## Documentation notes"); abort("documentation fixture mutation did not apply") unless changed; File.write(path, text)' "$fixture/Docs/bugs/BugTemplate.md"
+expect_failure documentation-impact-template "BugTemplate.md is missing required text: ## Documentation impact"
 
 fixture="$(make_fixture broken-link)"
 printf '\n[Missing](./not-here.md)\n' >>"$fixture/README.md"

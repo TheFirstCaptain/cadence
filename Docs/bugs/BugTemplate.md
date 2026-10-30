@@ -32,6 +32,10 @@ Record evidence, affected data, device/OS details, and uncertainty.
 
 Define the regression test and relevant manual checks.
 
+## Documentation impact
+
+List every affected source-of-truth document, decision, tracker, evidence record, and public status surface. If none apply, write `None` and explain why.
+
 ## Related work
 
 Link features, decisions, or engineering records.

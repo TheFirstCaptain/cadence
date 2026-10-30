@@ -34,6 +34,10 @@ Define boundaries, sequencing, and rollback concerns.
 
 Describe automated and manual behavior-preservation checks.
 
+## Documentation impact
+
+List every affected source-of-truth document, decision, tracker, evidence record, and public status surface. If none apply, write `None` and explain why.
+
 ## Related work
 
 Link features, bugs, decisions, or other engineering records.

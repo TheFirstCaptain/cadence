@@ -6,11 +6,13 @@ A change is done only when every applicable item is satisfied or a limitation is
 
 - Work is classified as a feature, bug, or engineering maintenance item.
 - Objective, non-goals, workflow tier, and acceptance notes are current.
+- Documentation impact is recorded, naming affected documents and status surfaces or stating `None` with a concrete reason.
 - The implementation matches Vision, Design Guidelines, Architecture, and Terminology.
 - Relevant automated tests pass.
 - Relevant manual validation is complete or documented as unavailable.
 - The complete diff has been reviewed for scope creep, privacy, data loss, and stale documentation.
 - Tracker state and related records are current.
+- Affected documentation was updated in the same coherent change and reconciled before review handoff, commit, push, and status transition.
 - No unresolved critical or high finding remains.
 - Every discovered drift class has a permanent automated regression guard, or a tracked manual check and automation follow-up with an owner and residual risk.
 - The handoff states files changed, behavior changed, validation performed, and residual risk.
@@ -37,7 +39,7 @@ A change is done only when every applicable item is satisfied or a limitation is
 ## After the Xcode project exists
 
 - The authoritative quality command passes locally.
-- Completion evidence records the exact quality command, tested source revision or tree, immutable CI/handoff run identity, Xcode/Swift version, simulator destination, and result. A documentation-only evidence closeout may follow the full run, but must pass documentation and consistency checks and may not alter executable inputs.
+- Completion evidence records the exact quality command, tested source revision or tree, immutable CI/handoff run identity, Xcode/Swift version, simulator destination, and result. A documentation-only evidence closeout may add immutable evidence and final status after the full run, but must pass documentation and consistency checks, may not alter executable inputs, and may not defer known documentation updates from the implementation change.
 - The app builds for the documented simulator or destination.
 - Unit and UI tests appropriate to the change pass.
 - GitHub Actions uses the same quality policy as local development.

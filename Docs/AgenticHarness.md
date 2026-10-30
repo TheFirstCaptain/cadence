@@ -61,17 +61,27 @@ For code changes, the independent reviewer also inspects the complete diff, chan
 
 Critical and high findings must be fixed. Medium findings must be fixed or explicitly accepted by the user with a tracked follow-up and residual risk. Low findings require a recorded disposition.
 
+## Documentation continuity
+
+Documentation is part of the implementation, not a final cleanup task.
+
+Before implementation, record a documentation-impact assessment in the tracked work item. Name each affected source-of-truth document, decision, tracker, completion-evidence record, and public status surface. If no documentation change is needed, record `None` and explain why.
+
+Update affected documentation in the same coherent change whenever behavior, architecture, commands, tests, quality policy, workflow, roadmap sequencing, evidence, scope, or work status changes. Reconcile the assessment against the complete diff before review handoff, commit, push, and every status transition. A reviewer must inspect semantic consistency; automated checks can enforce structure, links, statuses, and selected invariants but cannot prove prose is truthful.
+
+A documentation-only evidence closeout may add immutable run identity and final status after the tested revision. It must not be used to postpone known executable-contract, architecture, acceptance, workflow, roadmap, or public-status updates that belonged with the implementation.
+
 ## Implementation loop
 
 1. Confirm the tracked record and tier.
-2. Record objective, acceptance notes, non-goals, and open questions.
+2. Record objective, acceptance notes, non-goals, open questions, and documentation impact.
 3. Complete required planning and review stages.
 4. Make the smallest coherent change, using test-first development where practical.
-5. Run focused checks while working.
-6. Update product documentation, acceptance tests, decisions, and trackers.
-7. Review the complete diff.
+5. Update affected documentation alongside implementation as facts change.
+6. Run focused checks while working.
+7. Reconcile the complete diff against the documentation-impact assessment before review handoff, commit, push, or status transition.
 8. Run the authoritative quality command when available.
-9. Update status only when the Definition of Done is satisfied.
+9. Update status only when the Definition of Done is satisfied and documentation remains current.
 
 ## Quality contract
 

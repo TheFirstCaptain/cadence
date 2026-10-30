@@ -51,9 +51,9 @@ The foundation currently contains the app shell and test targets; product implem
 
 Cadence uses a repository-owned agentic coding harness so product intent, implementation, review, and validation remain aligned across development sessions.
 
-Before contributing, read [AGENTS.md](AGENTS.md) and the [Agentic Coding Harness](Docs/AgenticHarness.md). Work is classified as a feature, bug, or engineering-maintenance item and follows a risk-based workflow. Persistence, migrations, date and time-zone logic, notifications, privacy, destructive actions, dependencies, and build setup receive the highest level of review.
+Before contributing, read [AGENTS.md](AGENTS.md) and the [Agentic Coding Harness](Docs/AgenticHarness.md). Work is classified as a feature, bug, or engineering-maintenance item and follows a risk-based workflow. Each change identifies its documentation impact before implementation, updates affected sources of truth alongside the work, and reconciles them before review, commit, push, or status transition. Persistence, migrations, date and time-zone logic, notifications, privacy, destructive actions, dependencies, and build setup receive the highest level of review.
 
-F-002 is adding one authoritative native quality command shared by local development and GitHub Actions.
+`Scripts/quality.sh` is the authoritative native quality command shared by local development and GitHub Actions.
 
 ## Guiding principle
 

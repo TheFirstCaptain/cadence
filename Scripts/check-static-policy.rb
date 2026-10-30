@@ -24,6 +24,13 @@ project = read(root, "Cadence.xcodeproj/project.pbxproj")
 full_scheme = read(root, "Cadence.xcodeproj/xcshareddata/xcschemes/Cadence.xcscheme")
 fast_scheme = read(root, "Cadence.xcodeproj/xcshareddata/xcschemes/CadenceFast.xcscheme")
 
+require_text(root, "AGENTS.md", "Before implementation, record the documentation impact")
+require_text(root, "Docs/AgenticHarness.md", "## Documentation continuity")
+require_text(root, "Docs/DefinitionOfDone.md", "Documentation impact is recorded")
+%w[Docs/features/FeatureTemplate.md Docs/bugs/BugTemplate.md Docs/engineering/EngineeringTemplate.md].each do |template|
+  require_text(root, template, "## Documentation impact")
+end
+
 %w[Cadence CadenceTests CadenceUITests].each do |target|
   fail_policy("full scheme is missing #{target}") unless full_scheme.include?(%(BlueprintName = "#{target}"))
 end

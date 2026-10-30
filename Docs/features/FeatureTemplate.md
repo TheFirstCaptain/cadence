@@ -50,6 +50,10 @@ Use `No material findings.` when appropriate. Otherwise record every material fi
 - Privacy/accessibility:
 - Documentation:
 
+## Documentation impact
+
+List every affected source-of-truth document, decision, tracker, evidence record, and public status surface. If none apply, write `None` and explain why.
+
 ## Validation plan
 
 Describe automated tests, manual scenarios, accessibility checks, and device or simulator coverage.

@@ -37,9 +37,11 @@ Use these documents as the source of truth. If code and documentation disagree, 
 4. Use independent agent review when the selected tier requires it.
 5. Treat persistence, migrations, dates, time zones, notifications, privacy, destructive actions, and dependency changes as high risk.
 6. Keep user-facing language calm and nonjudgmental. Do not introduce streak punishment, moral scoring, or shame.
-7. Update acceptance tests and source-of-truth documentation when behavior changes.
-8. Run the authoritative repository quality command once it exists. Until the Xcode project is created, validate documentation links, tracker consistency, and the complete diff.
-9. Finish with a factual summary of files changed, validation performed, and remaining risk.
+7. Before implementation, record the documentation impact in the tracked work item: name the affected source-of-truth documents, tracker, decisions, and public status surfaces, or state `None` with a concrete reason.
+8. Update affected documentation in the same coherent change whenever behavior, architecture, commands, tests, quality policy, workflow, roadmap sequencing, evidence, scope, or work status changes. Do not defer known documentation work to final closeout.
+9. Before review handoff, commit, push, or status transition, reconcile the complete diff against the recorded documentation impact and update any stale claims.
+10. Run the authoritative repository quality command once it exists. Until the Xcode project is created, validate documentation links, tracker consistency, and the complete diff.
+11. Finish with a factual summary of files changed, validation performed, documentation reconciled, and remaining risk.
 
 ## Product Boundaries
 
