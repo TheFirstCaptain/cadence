@@ -41,7 +41,7 @@
 
 ### 2. My Day and My Goals
 
-- Establish F-003A's repository-backed My Day presentation, Today/This Week grouping, progress state, ordering, and empty-plan invitation.
+- Validate F-003A's implemented repository-backed My Day presentation, Today/This Week grouping, capped progress state, ordering, empty-plan invitation, recoverable failure, and day/time-zone refresh.
 - Add F-003B's one-tap Goal completion and undo with persistence, rollback, relaunch, and accessible feedback.
 - Add F-003C's five built-in iIndulged counters with timestamped plus/minus behavior, final symbols, and accessible feedback.
 - Close the F-003 umbrella through integration review, the manual accessibility matrix, full-gate evidence, and documentation reconciliation.

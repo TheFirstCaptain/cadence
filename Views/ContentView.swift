@@ -2,14 +2,16 @@ import SwiftUI
 
 struct ContentView: View {
   @State private var selection = PrimaryTab.myDay
+  let dependencies: AppDependencies
 
   var body: some View {
     TabView(selection: $selection) {
       Tab(value: PrimaryTab.myDay) {
-        PlaceholderView(
-          title: "My Day",
-          message: "Your daily rhythm will appear here.",
-          accessibilityIdentifier: "my-day-screen"
+        MyDayView(
+          repository: dependencies.dailyTracking,
+          date: dependencies.date,
+          timeZone: dependencies.timeZone,
+          onOpenGoals: { selection = .myGoals }
         )
       } label: {
         Label("My Day", systemImage: "sun.max")
@@ -39,7 +41,7 @@ struct ContentView: View {
   }
 }
 
-private enum PrimaryTab: Hashable {
+enum PrimaryTab: Hashable {
   case myDay
   case myGoals
   case history
@@ -64,8 +66,4 @@ private struct PlaceholderView: View {
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
-}
-
-#Preview {
-  ContentView()
 }

@@ -75,6 +75,14 @@ nonisolated struct DayActivitySnapshot: Hashable, Sendable {
   let occurrences: [IndulgenceOccurrenceSnapshot]
 }
 
+nonisolated struct MyDaySnapshot: Hashable, Sendable {
+  let day: LocalDay
+  let week: WeekID
+  let goals: [PlannedGoalSnapshot]
+  let todayCheckoffs: [GoalCheckoffSnapshot]
+  let weekCheckoffs: [GoalCheckoffSnapshot]
+}
+
 nonisolated struct WeekActivitySnapshot: Hashable, Sendable {
   let plan: WeeklyPlanSnapshot?
   let checkoffs: [GoalCheckoffSnapshot]

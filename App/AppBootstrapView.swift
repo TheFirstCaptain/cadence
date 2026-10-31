@@ -60,8 +60,8 @@ struct AppBootstrapView: View {
       case .preparing:
         ProgressView("Preparing Cadence")
           .accessibilityIdentifier("app-preparing")
-      case .ready:
-        ContentView()
+      case .ready(let dependencies):
+        ContentView(dependencies: dependencies)
       case .failed:
         StartupFailureView {
           Task { await model.retry() }

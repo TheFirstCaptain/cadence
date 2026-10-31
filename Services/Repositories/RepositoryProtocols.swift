@@ -4,7 +4,7 @@ nonisolated protocol ApplicationPreparing: Sendable {
   func prepare() async throws
 }
 
-protocol PlanningRepository: Sendable {
+nonisolated protocol PlanningRepository: Sendable {
   func plan(for week: WeekID) async throws -> WeeklyPlanSnapshot?
   func ensurePlan(for week: WeekID) async throws -> WeeklyPlanSnapshot
   func addGoal(to week: WeekID, configuration: GoalConfiguration) async throws
@@ -15,7 +15,8 @@ protocol PlanningRepository: Sendable {
   func carryForward(from source: WeekID, to target: WeekID) async throws -> WeeklyPlanSnapshot
 }
 
-protocol DailyTrackingRepository: Sendable {
+nonisolated protocol DailyTrackingRepository: Sendable {
+  func myDaySnapshot(for day: LocalDay) async throws -> MyDaySnapshot
   func daySnapshot(for day: LocalDay) async throws -> DayActivitySnapshot
   func recordCheckoff(goalID: UUID, on day: LocalDay) async throws -> GoalCheckoffSnapshot
   func removeCheckoff(goalID: UUID, on day: LocalDay) async throws -> GoalCheckoffSnapshot?
@@ -24,7 +25,7 @@ protocol DailyTrackingRepository: Sendable {
     -> IndulgenceOccurrenceSnapshot?
 }
 
-protocol HistoryRepository: Sendable {
+nonisolated protocol HistoryRepository: Sendable {
   func weekSnapshot(for week: WeekID) async throws -> WeekActivitySnapshot
   func dayHistory(for day: LocalDay) async throws -> DayActivitySnapshot
   func removeOccurrence(id: UUID) async throws -> IndulgenceOccurrenceSnapshot?

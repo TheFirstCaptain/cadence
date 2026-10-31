@@ -20,8 +20,38 @@ struct CadenceStoreTests {
     requireSendable(IndulgenceCategorySnapshot.self)
     requireSendable(IndulgenceOccurrenceSnapshot.self)
     requireSendable(DayActivitySnapshot.self)
+    requireSendable(MyDaySnapshot.self)
     requireSendable(WeekActivitySnapshot.self)
     requireSendable(RepositoryError.self)
+  }
+
+  @Test
+  func myDayReadIsAtomicWeekBoundedOrderedAndUsesCurrentOfferingSemantics() async throws {
+    let store = try makeStore()
+    _ = try await store.ensurePlan(for: week)
+    let daily = try await store.addGoal(
+      to: week, configuration: GoalConfiguration(name: "Walk", frequency: .daily))
+    let custom = try await store.addGoal(
+      to: week,
+      configuration: GoalConfiguration(name: "Read", frequency: .custom(daysPerWeek: 3)!))
+    _ = try await store.reorderGoals(in: week, orderedIDs: [custom.id, daily.id])
+    let wednesday = LocalDay(year: 2026, month: 10, day: 28)!
+    let thursday = LocalDay(year: 2026, month: 10, day: 29)!
+    let customToday = try await store.recordCheckoff(goalID: custom.id, on: wednesday)
+    _ = try await store.recordCheckoff(goalID: custom.id, on: thursday)
+    let todayCheckoff = try await store.recordCheckoff(goalID: daily.id, on: wednesday)
+
+    let snapshot = try await store.myDaySnapshot(for: wednesday)
+
+    #expect(snapshot.day == wednesday)
+    #expect(snapshot.week == week)
+    #expect(snapshot.goals.map(\.id) == [custom.id, daily.id])
+    #expect(Set(snapshot.todayCheckoffs.map(\.id)) == [customToday.id, todayCheckoff.id])
+    #expect(Set(snapshot.weekCheckoffs.map(\.localDay)) == [wednesday, thursday])
+
+    _ = try await store.removeGoal(id: daily.id, effectiveOn: wednesday)
+    #expect(try await store.myDaySnapshot(for: wednesday).goals.map(\.id) == [custom.id])
+    #expect(try await store.dayHistory(for: wednesday).goals.map(\.id).contains(daily.id))
   }
 
   @Test

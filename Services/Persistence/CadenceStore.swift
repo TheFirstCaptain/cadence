@@ -227,6 +227,28 @@ actor CadenceStore:
     try makeDaySnapshot(day)
   }
 
+  func myDaySnapshot(for day: LocalDay) throws -> MyDaySnapshot {
+    guard let week = WeekID(containing: day) else { throw RepositoryError.corruptedData }
+    let plan = try plan(for: week)
+    let goals =
+      plan?.goals
+      .filter { $0.activeFrom <= day && $0.isCurrentlyOffered }
+      .sorted { $0.sortOrder < $1.sortOrder } ?? []
+    let goalIDs = Set(goals.map(\.id))
+    let weekDayKeys = Set((0..<7).compactMap { week.monday.addingDays($0)?.canonicalKey })
+    let weekCheckoffs = try checkoffRecords()
+      .filter { goalIDs.contains($0.plannedGoalID) && weekDayKeys.contains($0.localDayKey) }
+      .map(checkoffSnapshot)
+      .sorted { $0.instant < $1.instant }
+    return MyDaySnapshot(
+      day: day,
+      week: week,
+      goals: goals,
+      todayCheckoffs: weekCheckoffs.filter { $0.localDay == day },
+      weekCheckoffs: weekCheckoffs
+    )
+  }
+
   func dayHistory(for day: LocalDay) throws -> DayActivitySnapshot {
     try makeDaySnapshot(day)
   }

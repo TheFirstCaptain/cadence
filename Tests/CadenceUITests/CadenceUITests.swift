@@ -8,10 +8,11 @@ final class CadenceUITests: XCTestCase {
   @MainActor
   func testAppLaunchesWithMyDaySelected() throws {
     let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-empty"]
     app.launch()
 
     waitForReadyState(in: app)
-    XCTAssertTrue(app.staticTexts["my-day-screen"].exists)
+    XCTAssertTrue(app.navigationBars["My Day"].exists)
     XCTAssertEqual(primaryDestinations(in: app).count, 3)
     XCTAssertTrue(primaryDestination("My Day", in: app).isSelected)
   }
@@ -19,6 +20,7 @@ final class CadenceUITests: XCTestCase {
   @MainActor
   func testNavigatesAcrossAllPrimaryTabs() throws {
     let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-empty"]
     app.launch()
 
     waitForReadyState(in: app)
@@ -36,8 +38,53 @@ final class CadenceUITests: XCTestCase {
 
     let myDayTab = primaryDestination("My Day", in: app)
     myDayTab.tap()
-    XCTAssertTrue(app.staticTexts["my-day-screen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.navigationBars["My Day"].waitForExistence(timeout: 5))
     XCTAssertTrue(myDayTab.isSelected)
+  }
+
+  @MainActor
+  func testEmptyMyDayKeepsIIndulgedVisibleAndRoutesDirectlyToMyGoals() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-empty"]
+    app.launch()
+
+    waitForReadyState(in: app)
+    XCTAssertTrue(app.staticTexts["No Goals planned yet"].exists)
+    XCTAssertTrue(app.staticTexts["iIndulged"].exists)
+    app.buttons["Go to My Goals"].tap()
+    XCTAssertTrue(app.staticTexts["my-goals-screen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(primaryDestination("My Goals", in: app).isSelected)
+  }
+
+  @MainActor
+  func testPopulatedMyDayGroupsGoalsInPlanOrderAndShowsProgress() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-populated"]
+    app.launch()
+
+    waitForReadyState(in: app)
+    XCTAssertTrue(app.staticTexts["Today"].exists)
+    XCTAssertTrue(app.staticTexts["This Week"].exists)
+    XCTAssertTrue(app.staticTexts["Walk"].exists)
+    XCTAssertTrue(elementWithLabel("Swim, 0 of 1", in: app).exists)
+    XCTAssertTrue(elementWithLabel("Read, 2 of 3", in: app).exists)
+    XCTAssertTrue(app.staticTexts["iIndulged"].exists)
+  }
+
+  @MainActor
+  func testMyDayReadFailureKeepsStructureAndOffersRetry() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-read-failure"]
+    app.launch()
+
+    waitForReadyState(in: app)
+    XCTAssertTrue(app.staticTexts["Goals"].exists)
+    XCTAssertTrue(app.staticTexts["Your Goals couldn’t be refreshed"].exists)
+    XCTAssertTrue(app.buttons["Try Again"].exists)
+    XCTAssertTrue(app.staticTexts["iIndulged"].exists)
+    XCTAssertFalse(
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "SwiftData")).firstMatch
+        .exists)
   }
 
   @MainActor
@@ -76,6 +123,11 @@ final class CadenceUITests: XCTestCase {
   @MainActor
   private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
     app.descendants(matching: .any)[identifier]
+  }
+
+  @MainActor
+  private func elementWithLabel(_ label: String, in app: XCUIApplication) -> XCUIElement {
+    app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
   }
 
   @MainActor
