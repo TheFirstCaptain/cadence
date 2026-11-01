@@ -2,7 +2,7 @@
 
 ## Current state
 
-Cadence's project foundation is complete. F-002A provides validated Gregorian civil dates, Monday-through-Sunday week identity, Goal frequencies, and injectable system values. F-002B provides the versioned local-only SwiftData schema, migration declaration, container factories, and fixed built-in iIndulged category seeding. F-002C provides the actor-backed repository and transaction boundary. F-002D provides the accessible three-tab shell with My Day selected by default. F-002E provides the local and hosted quality gates, semantic drift guards, negative fixtures, focused fast scheme, and deterministic simulator readiness. F-003A completes the repository-backed My Day presentation foundation; F-003B Goal checkoffs are the next delivery slice.
+Cadence's project foundation is complete. F-002A provides validated Gregorian civil dates, Monday-through-Sunday week identity, Goal frequencies, and injectable system values. F-002B provides the versioned local-only SwiftData schema, migration declaration, container factories, and fixed built-in iIndulged category seeding. F-002C provides the actor-backed repository and transaction boundary. F-002D provides the accessible three-tab shell with My Day selected by default. F-002E provides the local and hosted quality gates, semantic drift guards, negative fixtures, focused fast scheme, and deterministic simulator readiness. F-003A completes the repository-backed My Day presentation foundation. F-003B adds serialized, optimistic Goal checkoffs with mutation-only rollback, local-day capture, and accessible feedback while retaining the repository as the persistence authority.
 
 ## Intended platform
 
@@ -60,7 +60,7 @@ Repository transactions enforce one canonical plan per week, normalized Goal-nam
 - `CadenceApp` owns an asynchronous bootstrap that creates the local ModelContainer, one actor-backed store, live system-value providers, and the `AppDependencies` composition root. Feature content appears only after idempotent store preparation succeeds.
 - Startup failure preserves the local store and presents a calm retry surface. Cadence never silently substitutes in-memory storage, deletes the store, or exposes raw persistence errors.
 - Feature view models are `@MainActor`; views use constructor or environment injection and never import SwiftData for mutation.
-- My Day reads one atomic immutable snapshot through `DailyTrackingRepository`, then its MainActor presentation model derives Today and This Week groups and capped completed-of-target progress. Foreground, significant-time, time-zone, and rescheduled local-midnight events recapture the current instant and time zone; generation checks prevent an older read from replacing newer state.
+- My Day reads one atomic immutable snapshot through `DailyTrackingRepository`, then its MainActor presentation model derives Today and This Week groups and capped completed-of-target progress. Goal mutations are serialized, capture the displayed local day once, update optimistically, and roll back only when the repository mutation fails. Foreground, significant-time, time-zone, and rescheduled local-midnight events recapture the current instant and time zone; generation checks prevent an older read or mutation from replacing newer state.
 - Swift 6 language mode and complete concurrency checking are enabled. `@unchecked Sendable` is not used to hide isolation problems.
 
 ## Boundaries

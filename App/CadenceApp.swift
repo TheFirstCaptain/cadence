@@ -13,6 +13,9 @@ struct CadenceApp: App {
     if arguments.contains("--ui-test-my-day-read-failure") {
       return { try AppDependencies.uiTest(.readFailure) }
     }
+    if arguments.contains("--ui-test-my-day-mutation-failure") {
+      return { try AppDependencies.uiTest(.mutationFailure) }
+    }
     if arguments.contains("--ui-test-my-day-empty") {
       return { try AppDependencies.uiTest(.empty) }
     }

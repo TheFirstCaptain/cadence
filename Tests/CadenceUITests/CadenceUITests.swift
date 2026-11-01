@@ -66,9 +66,55 @@ final class CadenceUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Today"].exists)
     XCTAssertTrue(app.staticTexts["This Week"].exists)
     XCTAssertTrue(app.staticTexts["Walk"].exists)
-    XCTAssertTrue(elementWithLabel("Swim, 0 of 1", in: app).exists)
-    XCTAssertTrue(elementWithLabel("Read, 2 of 3", in: app).exists)
+    XCTAssertTrue(elementWithLabel("Swim, Not complete today, 0 of 1", in: app).exists)
+    XCTAssertTrue(elementWithLabel("Read, Complete today, 2 of 3", in: app).exists)
     XCTAssertTrue(app.staticTexts["iIndulged"].exists)
+  }
+
+  @MainActor
+  func testGoalCheckoffsCompleteAndUndoAcrossFrequencyClasses() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-populated"]
+    app.launch()
+    waitForReadyState(in: app)
+
+    let walkComplete = elementWithLabel("Walk, Complete", in: app)
+    walkComplete.tap()
+    let walkIncomplete = elementWithLabel("Walk, Not complete", in: app)
+    XCTAssertTrue(walkIncomplete.waitForExistence(timeout: 5))
+    walkIncomplete.tap()
+    XCTAssertTrue(walkComplete.waitForExistence(timeout: 5))
+
+    let swimIncomplete = elementWithLabel("Swim, Not complete today, 0 of 1", in: app)
+    swimIncomplete.tap()
+    XCTAssertTrue(
+      elementWithLabel("Swim, Complete today, 1 of 1", in: app).waitForExistence(timeout: 5))
+
+    let readComplete = elementWithLabel("Read, Complete today, 2 of 3", in: app)
+    readComplete.tap()
+    let readIncomplete = elementWithLabel("Read, Not complete today, 1 of 3", in: app)
+    XCTAssertTrue(readIncomplete.waitForExistence(timeout: 5))
+    readIncomplete.tap()
+    XCTAssertTrue(readComplete.waitForExistence(timeout: 5))
+  }
+
+  @MainActor
+  func testGoalMutationFailureRestoresRowAndKeepsCalmGuidanceInline() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-mutation-failure"]
+    app.launch()
+    waitForReadyState(in: app)
+
+    let swim = elementWithLabel("Swim, Not complete today, 0 of 1", in: app)
+    swim.tap()
+
+    XCTAssertTrue(
+      app.staticTexts["Couldn’t update this Goal. Please try again."].waitForExistence(timeout: 5))
+    XCTAssertTrue(swim.exists)
+    XCTAssertTrue(app.staticTexts["iIndulged"].exists)
+    XCTAssertFalse(
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "SwiftData"))
+        .firstMatch.exists)
   }
 
   @MainActor

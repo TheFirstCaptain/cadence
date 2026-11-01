@@ -42,7 +42,7 @@
 ### 2. My Day and My Goals
 
 - **F-003A My Day presentation:** Complete. Added repository-backed screen states, Today/This Week grouping, capped progress, stable ordering, empty-plan routing, recoverable failure, and day/time-zone refresh.
-- Add F-003B's one-tap Goal completion and undo with persistence, rollback, relaunch, and accessible feedback.
+- **F-003B Goal checkoffs:** Complete. Added one-tap completion and undo with persistence, rollback, relaunch, concurrency guards, and accessible feedback.
 - Add F-003C's five built-in iIndulged counters with timestamped plus/minus behavior, final symbols, and accessible feedback.
 - Close the F-003 umbrella through integration review, the manual accessibility matrix, full-gate evidence, and documentation reconciliation.
 - Build Sunday Planning in My Goals for the upcoming Monday-through-Sunday week.

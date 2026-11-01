@@ -351,23 +351,31 @@ struct CadenceStoreTests {
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "Cadence.store")
     var planID: UUID?
+    var goalID: UUID?
+    let day = LocalDay(year: 2026, month: 10, day: 28)!
 
     do {
       let container = try CadenceModelContainerFactory.makeProductionContainer(url: url)
       let store = CadenceStore(modelContainer: container, dependencies: dependencies())
       planID = try await store.ensurePlan(for: week).id
-      _ = try await store.addGoal(
+      let goal = try await store.addGoal(
         to: week,
         configuration: GoalConfiguration(name: "Walk", frequency: .daily)
       )
+      goalID = goal.id
+      _ = try await store.recordCheckoff(goalID: goal.id, on: day)
     }
 
     do {
       let container = try CadenceModelContainerFactory.makeProductionContainer(url: url)
       let reopened = CadenceStore(modelContainer: container, dependencies: dependencies())
       let plan = try #require(try await reopened.plan(for: week))
+      let expectedGoalID = try #require(goalID)
       #expect(plan.id == planID)
       #expect(plan.goals.map(\.name) == ["Walk"])
+      let myDay = try await reopened.myDaySnapshot(for: day)
+      #expect(myDay.todayCheckoffs.map(\.plannedGoalID) == [expectedGoalID])
+      #expect(myDay.weekCheckoffs.map(\.plannedGoalID) == [expectedGoalID])
     }
   }
 

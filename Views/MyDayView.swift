@@ -7,6 +7,8 @@ nonisolated struct MyDayGoalRow: Hashable, Sendable, Identifiable {
   let isCompleteToday: Bool
   let completed: Int
   let target: Int
+
+  var canToggle: Bool { isCompleteToday || completed < target }
 }
 
 nonisolated struct MyDayPresentation: Hashable, Sendable {
@@ -16,6 +18,18 @@ nonisolated struct MyDayPresentation: Hashable, Sendable {
   let thisWeek: [MyDayGoalRow]
 
   var isEmpty: Bool { today.isEmpty && thisWeek.isEmpty }
+
+  private init(
+    day: LocalDay,
+    week: WeekID,
+    today: [MyDayGoalRow],
+    thisWeek: [MyDayGoalRow]
+  ) {
+    self.day = day
+    self.week = week
+    self.today = today
+    self.thisWeek = thisWeek
+  }
 
   init(snapshot: MyDaySnapshot) {
     day = snapshot.day
@@ -39,6 +53,26 @@ nonisolated struct MyDayPresentation: Hashable, Sendable {
       goal.frequency.kind == .daily ? nil : row
     }
   }
+
+  func togglingGoal(id: UUID) -> MyDayPresentation {
+    func toggled(_ row: MyDayGoalRow) -> MyDayGoalRow {
+      guard row.id == id else { return row }
+      let isComplete = !row.isCompleteToday
+      return MyDayGoalRow(
+        id: row.id,
+        name: row.name,
+        isCompleteToday: isComplete,
+        completed: min(max(row.completed + (isComplete ? 1 : -1), 0), row.target),
+        target: row.target
+      )
+    }
+    return MyDayPresentation(
+      day: day,
+      week: week,
+      today: today.map(toggled),
+      thisWeek: thisWeek.map(toggled)
+    )
+  }
 }
 
 @MainActor
@@ -50,11 +84,15 @@ final class MyDayModel: ObservableObject {
   }
 
   @Published private(set) var state: State = .loading
+  @Published private(set) var mutatingGoalID: UUID?
+  @Published private(set) var mutationMessage: String?
+  @Published private(set) var successfulMutationCount = 0
 
   private let repository: any DailyTrackingRepository
   private let date: DateProvider
   private let timeZone: CurrentTimeZoneProvider
   private var generation = 0
+  private var refreshPending = false
 
   init(
     repository: any DailyTrackingRepository,
@@ -75,10 +113,18 @@ final class MyDayModel: ObservableObject {
   }
 
   func refreshFromForeground() async {
+    guard mutatingGoalID == nil else {
+      refreshPending = true
+      return
+    }
     await load(showLoading: false)
   }
 
   func refreshFromBoundaryEvent() async {
+    guard mutatingGoalID == nil else {
+      refreshPending = true
+      return
+    }
     let identity = currentIdentity()
     if case .ready(let presentation) = state,
       presentation.day == identity.day,
@@ -89,7 +135,49 @@ final class MyDayModel: ObservableObject {
     await load(showLoading: false)
   }
 
-  private func load(showLoading: Bool) async {
+  func toggle(_ row: MyDayGoalRow) async {
+    guard mutatingGoalID == nil, row.canToggle,
+      case .ready(let presentation) = state
+    else { return }
+
+    let identity = currentIdentity()
+    guard presentation.day == identity.day, presentation.week == identity.week else {
+      await load(showLoading: false)
+      return
+    }
+
+    generation += 1
+    let mutationGeneration = generation
+    let previous = presentation
+    mutationMessage = nil
+    mutatingGoalID = row.id
+    state = .ready(presentation.togglingGoal(id: row.id))
+    var mutationFailed = false
+
+    do {
+      if row.isCompleteToday {
+        _ = try await repository.removeCheckoff(goalID: row.id, on: identity.day)
+      } else {
+        _ = try await repository.recordCheckoff(goalID: row.id, on: identity.day)
+      }
+      if mutationGeneration == generation {
+        successfulMutationCount += 1
+      }
+    } catch {
+      mutationFailed = true
+      if mutationGeneration == generation {
+        state = .ready(previous)
+        mutationMessage = "Couldn’t update this Goal. Please try again."
+      }
+    }
+    mutatingGoalID = nil
+    if refreshPending {
+      refreshPending = false
+      await load(showLoading: false, clearMutationMessage: !mutationFailed)
+    }
+  }
+
+  private func load(showLoading: Bool, clearMutationMessage: Bool = true) async {
     generation += 1
     let requestGeneration = generation
     if showLoading { state = .loading }
@@ -97,6 +185,7 @@ final class MyDayModel: ObservableObject {
     do {
       let snapshot = try await repository.myDaySnapshot(for: identity.day)
       guard requestGeneration == generation else { return }
+      if clearMutationMessage { mutationMessage = nil }
       state = .ready(MyDayPresentation(snapshot: snapshot))
     } catch {
       guard requestGeneration == generation else { return }
@@ -162,6 +251,7 @@ struct MyDayView: View {
       guard phase == .active else { return }
       Task { await model.refreshFromForeground() }
     }
+    .sensoryFeedback(.selection, trigger: model.successfulMutationCount)
   }
 
   @ViewBuilder
@@ -194,6 +284,12 @@ struct MyDayView: View {
         }
         .accessibilityIdentifier("my-day-empty")
       case .ready(let presentation):
+        if let mutationMessage = model.mutationMessage {
+          Text(mutationMessage)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("goal-mutation-failed")
+        }
         if !presentation.today.isEmpty {
           goalGroup("Today", rows: presentation.today, showsProgress: false)
         }
@@ -215,27 +311,37 @@ struct MyDayView: View {
         .font(.headline)
         .accessibilityAddTraits(.isHeader)
       ForEach(rows) { row in
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-          if !showsProgress {
+        Button {
+          Task { await model.toggle(row) }
+        } label: {
+          HStack(alignment: .firstTextBaseline, spacing: 12) {
             Image(systemName: row.isCompleteToday ? "checkmark.circle.fill" : "circle")
               .foregroundStyle(.secondary)
               .accessibilityHidden(true)
+            Text(row.name)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            if showsProgress {
+              Text("\(row.completed) of \(row.target)")
+                .foregroundStyle(.secondary)
+                .padding(.leading, 8)
+                .fixedSize(horizontal: true, vertical: false)
+            }
           }
-          Text(row.name)
-            .frame(maxWidth: .infinity, alignment: .leading)
-          if showsProgress {
-            Text("\(row.completed) of \(row.target)")
-              .foregroundStyle(.secondary)
-              .padding(.leading, 8)
-              .fixedSize(horizontal: true, vertical: false)
-          }
+          .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .disabled(model.mutatingGoalID != nil || !row.canToggle)
         .padding(.vertical, 6)
-        .accessibilityElement(children: .combine)
         .accessibilityLabel(
           showsProgress
-            ? "\(row.name), \(row.completed) of \(row.target)"
+            ? "\(row.name), \(row.isCompleteToday ? "Complete today" : "Not complete today"), \(row.completed) of \(row.target)"
             : "\(row.name), \(row.isCompleteToday ? "Complete" : "Not complete")"
+        )
+        .accessibilityHint(
+          row.canToggle
+            ? (row.isCompleteToday
+              ? "Double tap to mark incomplete" : "Double tap to mark complete")
+            : "Weekly target met"
         )
         .accessibilityIdentifier("goal-row-\(row.id.uuidString)")
       }

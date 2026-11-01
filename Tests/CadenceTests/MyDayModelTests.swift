@@ -155,6 +155,186 @@ struct MyDayModelTests {
     #expect(await repository.readCount == 3)
   }
 
+  @Test
+  func toggleCompletesAndUndoesGoalWithoutRemovingItsRow() async throws {
+    let custom = goal(name: "Read", frequency: .custom(daysPerWeek: 3)!, sortOrder: 0)
+    let snapshot = MyDaySnapshot(
+      day: wednesday,
+      week: WeekID(containing: wednesday)!,
+      goals: [custom],
+      todayCheckoffs: [],
+      weekCheckoffs: [checkoff(goalID: custom.id, day: wednesday.addingDays(-1)!)]
+    )
+    let repository = ToggleDailyTrackingRepository(snapshot: snapshot)
+    let model = makeModel(repository: repository)
+    await model.loadInitial()
+
+    var row = try #require(readyPresentation(model.state).thisWeek.first)
+    await model.toggle(row)
+    row = try #require(readyPresentation(model.state).thisWeek.first)
+    #expect(row.isCompleteToday)
+    #expect(row.completed == 2)
+    #expect(model.successfulMutationCount == 1)
+
+    await model.toggle(row)
+    row = try #require(readyPresentation(model.state).thisWeek.first)
+    #expect(!row.isCompleteToday)
+    #expect(row.completed == 1)
+    #expect(
+      await repository.mutations == [.record(custom.id, wednesday), .remove(custom.id, wednesday)])
+  }
+
+  @Test
+  func failedMutationRestoresPresentationAndShowsInlineGuidance() async throws {
+    let daily = goal(name: "Walk", frequency: .daily, sortOrder: 0)
+    let snapshot = MyDaySnapshot(
+      day: wednesday,
+      week: WeekID(containing: wednesday)!,
+      goals: [daily],
+      todayCheckoffs: [],
+      weekCheckoffs: []
+    )
+    let repository = ToggleDailyTrackingRepository(snapshot: snapshot, failsMutation: true)
+    let model = makeModel(repository: repository)
+    await model.loadInitial()
+
+    await model.toggle(try #require(readyPresentation(model.state).today.first))
+
+    #expect(try readyPresentation(model.state).today.first?.isCompleteToday == false)
+    #expect(model.mutationMessage == "Couldn’t update this Goal. Please try again.")
+    #expect(model.successfulMutationCount == 0)
+  }
+
+  @Test
+  func inFlightMutationSuppressesSecondTapAndUsesCapturedDay() async throws {
+    let daily = goal(name: "Walk", frequency: .daily, sortOrder: 0)
+    let snapshot = MyDaySnapshot(
+      day: wednesday,
+      week: WeekID(containing: wednesday)!,
+      goals: [daily],
+      todayCheckoffs: [],
+      weekCheckoffs: []
+    )
+    let repository = ToggleDailyTrackingRepository(
+      snapshot: snapshot, mutationDelay: .milliseconds(100))
+    let model = makeModel(repository: repository)
+    await model.loadInitial()
+    let row = try #require(readyPresentation(model.state).today.first)
+
+    let first = Task { await model.toggle(row) }
+    await Task.yield()
+    await model.toggle(row)
+    await first.value
+
+    #expect(await repository.mutations == [.record(daily.id, wednesday)])
+  }
+
+  @Test
+  func targetMetOnEarlierDayCannotAddAnotherCheckoff() async throws {
+    let weekly = goal(name: "Swim", frequency: .weekly, sortOrder: 0)
+    let snapshot = MyDaySnapshot(
+      day: wednesday,
+      week: WeekID(containing: wednesday)!,
+      goals: [weekly],
+      todayCheckoffs: [],
+      weekCheckoffs: [checkoff(goalID: weekly.id, day: wednesday.addingDays(-1)!)]
+    )
+    let repository = ToggleDailyTrackingRepository(snapshot: snapshot)
+    let model = makeModel(repository: repository)
+    await model.loadInitial()
+    let row = try #require(readyPresentation(model.state).thisWeek.first)
+
+    #expect(!row.canToggle)
+    await model.toggle(row)
+    #expect(await repository.mutations.isEmpty)
+  }
+
+  @Test
+  func stalePresentationRefreshesNewLocalDayWithoutWriting() async throws {
+    let thursday = wednesday.addingDays(1)!
+    let daily = goal(name: "Walk", frequency: .daily, sortOrder: 0)
+    let wednesdaySnapshot = MyDaySnapshot(
+      day: wednesday, week: WeekID(containing: wednesday)!, goals: [daily],
+      todayCheckoffs: [], weekCheckoffs: [])
+    let thursdaySnapshot = MyDaySnapshot(
+      day: thursday, week: WeekID(containing: thursday)!, goals: [daily],
+      todayCheckoffs: [], weekCheckoffs: [])
+    let dates = Mutex(instant(for: wednesday))
+    let repository = ToggleDailyTrackingRepository(snapshots: [
+      wednesday: wednesdaySnapshot, thursday: thursdaySnapshot,
+    ])
+    let model = MyDayModel(
+      repository: repository,
+      date: DateProvider { dates.withLock { $0 } },
+      timeZone: CurrentTimeZoneProvider { self.utc })
+    await model.loadInitial()
+    let staleRow = try #require(readyPresentation(model.state).today.first)
+
+    dates.withLock { $0 = self.instant(for: thursday) }
+    await model.toggle(staleRow)
+
+    #expect(try readyPresentation(model.state).day == thursday)
+    #expect(await repository.mutations.isEmpty)
+  }
+
+  @Test
+  func boundaryRefreshDuringSuccessfulMutationIsCoalescedAfterWrite() async throws {
+    let thursday = wednesday.addingDays(1)!
+    let daily = goal(name: "Walk", frequency: .daily, sortOrder: 0)
+    let wednesdaySnapshot = MyDaySnapshot(
+      day: wednesday, week: WeekID(containing: wednesday)!, goals: [daily],
+      todayCheckoffs: [], weekCheckoffs: [])
+    let thursdaySnapshot = MyDaySnapshot(
+      day: thursday, week: WeekID(containing: thursday)!, goals: [daily],
+      todayCheckoffs: [], weekCheckoffs: [])
+    let dates = Mutex(instant(for: wednesday))
+    let repository = ToggleDailyTrackingRepository(
+      snapshots: [wednesday: wednesdaySnapshot, thursday: thursdaySnapshot],
+      mutationDelay: .milliseconds(100))
+    let model = MyDayModel(
+      repository: repository,
+      date: DateProvider { dates.withLock { $0 } },
+      timeZone: CurrentTimeZoneProvider { self.utc })
+    await model.loadInitial()
+    let row = try #require(readyPresentation(model.state).today.first)
+
+    let mutation = Task { await model.toggle(row) }
+    await Task.yield()
+    dates.withLock { $0 = self.instant(for: thursday) }
+    await model.refreshFromBoundaryEvent()
+    await mutation.value
+
+    #expect(try readyPresentation(model.state).day == thursday)
+    #expect(await repository.mutations == [.record(daily.id, wednesday)])
+    #expect(await repository.readCount == 2)
+  }
+
+  @Test
+  func foregroundRefreshDuringFailedMutationPreservesGuidanceUntilLaterRefresh() async throws {
+    let daily = goal(name: "Walk", frequency: .daily, sortOrder: 0)
+    let snapshot = MyDaySnapshot(
+      day: wednesday, week: WeekID(containing: wednesday)!, goals: [daily],
+      todayCheckoffs: [], weekCheckoffs: [])
+    let repository = ToggleDailyTrackingRepository(
+      snapshot: snapshot, failsMutation: true, mutationDelay: .milliseconds(100))
+    let model = makeModel(repository: repository)
+    await model.loadInitial()
+    let row = try #require(readyPresentation(model.state).today.first)
+
+    let mutation = Task { await model.toggle(row) }
+    await Task.yield()
+    await model.refreshFromForeground()
+    await mutation.value
+
+    #expect(try readyPresentation(model.state).today.first?.isCompleteToday == false)
+    #expect(model.mutationMessage == "Couldn’t update this Goal. Please try again.")
+    #expect(await repository.readCount == 2)
+
+    await model.refreshFromForeground()
+    #expect(model.mutationMessage == nil)
+    #expect(await repository.readCount == 3)
+  }
+
   private func makeModel(repository: any DailyTrackingRepository) -> MyDayModel {
     let now = instant(for: wednesday)
     let zone = utc
@@ -278,6 +458,72 @@ private actor DelayedDailyTrackingRepository: DailyTrackingRepository {
   {
     throw MyDayTestError.expected
   }
+}
+
+private enum ToggleMutation: Equatable, Sendable {
+  case record(UUID, LocalDay)
+  case remove(UUID, LocalDay)
+}
+
+private actor ToggleDailyTrackingRepository: DailyTrackingRepository {
+  let snapshots: [LocalDay: MyDaySnapshot]
+  let failsMutation: Bool
+  let mutationDelay: Duration?
+  private(set) var mutations: [ToggleMutation] = []
+  private(set) var readCount = 0
+
+  init(
+    snapshot: MyDaySnapshot,
+    failsMutation: Bool = false,
+    mutationDelay: Duration? = nil
+  ) {
+    self.snapshots = [snapshot.day: snapshot]
+    self.failsMutation = failsMutation
+    self.mutationDelay = mutationDelay
+  }
+
+  init(
+    snapshots: [LocalDay: MyDaySnapshot],
+    failsMutation: Bool = false,
+    mutationDelay: Duration? = nil
+  ) {
+    self.snapshots = snapshots
+    self.failsMutation = failsMutation
+    self.mutationDelay = mutationDelay
+  }
+
+  func myDaySnapshot(for day: LocalDay) throws -> MyDaySnapshot {
+    readCount += 1
+    guard let snapshot = snapshots[day] else { throw MyDayTestError.expected }
+    return snapshot
+  }
+  func daySnapshot(for day: LocalDay) throws -> DayActivitySnapshot {
+    throw MyDayTestError.expected
+  }
+
+  func recordCheckoff(goalID: UUID, on day: LocalDay) async throws -> GoalCheckoffSnapshot {
+    if let mutationDelay { try await Task.sleep(for: mutationDelay) }
+    mutations.append(.record(goalID, day))
+    if failsMutation { throw MyDayTestError.expected }
+    let now = Date(timeIntervalSince1970: 0)
+    return GoalCheckoffSnapshot(
+      id: UUID(), plannedGoalID: goalID, instant: now, localDay: day,
+      timeZoneIdentifier: "UTC", utcOffsetSeconds: 0, createdAt: now, updatedAt: now)
+  }
+
+  func removeCheckoff(goalID: UUID, on day: LocalDay) async throws -> GoalCheckoffSnapshot? {
+    if let mutationDelay { try await Task.sleep(for: mutationDelay) }
+    mutations.append(.remove(goalID, day))
+    if failsMutation { throw MyDayTestError.expected }
+    return nil
+  }
+
+  func recordIndulgence(categoryID: UUID) throws -> IndulgenceOccurrenceSnapshot {
+    throw MyDayTestError.expected
+  }
+  func removeLatestIndulgence(categoryID: UUID, on day: LocalDay) throws
+    -> IndulgenceOccurrenceSnapshot?
+  { throw MyDayTestError.expected }
 }
 
 private enum MyDayTestError: Error {

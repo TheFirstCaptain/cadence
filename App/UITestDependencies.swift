@@ -4,6 +4,7 @@ nonisolated enum UITestMyDayMode: Equatable, Sendable {
   case empty
   case populated
   case readFailure
+  case mutationFailure
 }
 
 extension AppDependencies {
@@ -19,7 +20,11 @@ extension AppDependencies {
       dependencies: CadenceStoreDependencies(date: date, timeZone: timeZone, uuid: uuid))
     let preparer = UITestMyDayPreparer(store: store, mode: mode, instant: instant, timeZone: zone)
     let dailyTracking: any DailyTrackingRepository =
-      mode == .readFailure ? FailingMyDayRepository(base: store) : store
+      switch mode {
+      case .readFailure: FailingMyDayRepository(base: store, failsReads: true)
+      case .mutationFailure: FailingMyDayRepository(base: store, failsReads: false)
+      case .empty, .populated: store
+      }
     return AppDependencies(
       planning: store,
       dailyTracking: dailyTracking,
@@ -46,7 +51,7 @@ private actor UITestMyDayPreparer: ApplicationPreparing {
 
   func prepare() async throws {
     try await store.prepare()
-    guard mode == .populated else { return }
+    guard mode == .populated || mode == .mutationFailure else { return }
     let calendar = GregorianCalendarService(timeZone: timeZone)
     let day = calendar.localDay(containing: instant)
     let week = calendar.week(containing: instant)
@@ -70,13 +75,16 @@ private actor UITestMyDayPreparer: ApplicationPreparing {
 
 private actor FailingMyDayRepository: DailyTrackingRepository {
   let base: CadenceStore
+  let failsReads: Bool
 
-  init(base: CadenceStore) {
+  init(base: CadenceStore, failsReads: Bool) {
     self.base = base
+    self.failsReads = failsReads
   }
 
-  func myDaySnapshot(for day: LocalDay) throws -> MyDaySnapshot {
-    throw RepositoryError.persistenceFailure
+  func myDaySnapshot(for day: LocalDay) async throws -> MyDaySnapshot {
+    if failsReads { throw RepositoryError.persistenceFailure }
+    return try await base.myDaySnapshot(for: day)
   }
 
   func daySnapshot(for day: LocalDay) async throws -> DayActivitySnapshot {
@@ -84,11 +92,13 @@ private actor FailingMyDayRepository: DailyTrackingRepository {
   }
 
   func recordCheckoff(goalID: UUID, on day: LocalDay) async throws -> GoalCheckoffSnapshot {
-    try await base.recordCheckoff(goalID: goalID, on: day)
+    if !failsReads { throw RepositoryError.persistenceFailure }
+    return try await base.recordCheckoff(goalID: goalID, on: day)
   }
 
   func removeCheckoff(goalID: UUID, on day: LocalDay) async throws -> GoalCheckoffSnapshot? {
-    try await base.removeCheckoff(goalID: goalID, on: day)
+    if !failsReads { throw RepositoryError.persistenceFailure }
+    return try await base.removeCheckoff(goalID: goalID, on: day)
   }
 
   func recordIndulgence(categoryID: UUID) async throws -> IndulgenceOccurrenceSnapshot {
