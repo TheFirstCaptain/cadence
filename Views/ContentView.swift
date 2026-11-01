@@ -18,10 +18,10 @@ struct ContentView: View {
       }
 
       Tab(value: PrimaryTab.myGoals) {
-        PlaceholderView(
-          title: "My Goals",
-          message: "Your weekly intentions will live here.",
-          accessibilityIdentifier: "my-goals-screen"
+        MyGoalsView(
+          repository: dependencies.planning,
+          date: dependencies.date,
+          timeZone: dependencies.timeZone
         )
       } label: {
         Label("My Goals", systemImage: "target")

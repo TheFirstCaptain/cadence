@@ -28,7 +28,7 @@ final class CadenceUITests: XCTestCase {
     let myGoalsTab = primaryDestination("My Goals", in: app)
     XCTAssertTrue(myGoalsTab.exists)
     myGoalsTab.tap()
-    XCTAssertTrue(app.staticTexts["my-goals-screen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(element("my-goals-screen", in: app).waitForExistence(timeout: 5))
     XCTAssertTrue(myGoalsTab.isSelected)
 
     let historyTab = primaryDestination("History", in: app)
@@ -40,6 +40,53 @@ final class CadenceUITests: XCTestCase {
     myDayTab.tap()
     XCTAssertTrue(app.navigationBars["My Day"].waitForExistence(timeout: 5))
     XCTAssertTrue(myDayTab.isSelected)
+  }
+
+  @MainActor
+  func testEmptyMyGoalsShowsExplicitWeekContext() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-empty"]
+    app.launch()
+    waitForReadyState(in: app)
+
+    primaryDestination("My Goals", in: app).tap()
+
+    XCTAssertTrue(element("my-goals-week-context", in: app).waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["No Goals planned for this week yet"].exists)
+    let context = element("my-goals-week-context", in: app).label
+    XCTAssertTrue(context.contains("This week"))
+    XCTAssertTrue(context.contains("through"))
+  }
+
+  @MainActor
+  func testPopulatedMyGoalsShowsGoalsInPlanOrderWithoutEditingControls() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-populated"]
+    app.launch()
+    waitForReadyState(in: app)
+
+    primaryDestination("My Goals", in: app).tap()
+
+    XCTAssertTrue(elementWithLabel("Swim, Weekly", in: app).waitForExistence(timeout: 5))
+    XCTAssertTrue(elementWithLabel("Walk, Daily", in: app).exists)
+    XCTAssertTrue(elementWithLabel("Read, 3 days per week", in: app).exists)
+    XCTAssertFalse(app.buttons["Add Goal"].exists)
+  }
+
+  @MainActor
+  func testMyGoalsReadFailureOffersCalmRetry() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-goals-read-failure"]
+    app.launch()
+    waitForReadyState(in: app)
+
+    primaryDestination("My Goals", in: app).tap()
+
+    XCTAssertTrue(app.staticTexts["Your plan couldn’t be refreshed"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Try Again"].exists)
+    XCTAssertFalse(
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "SwiftData"))
+        .firstMatch.exists)
   }
 
   @MainActor
@@ -62,7 +109,7 @@ final class CadenceUITests: XCTestCase {
     removeCandy.tap()
     XCTAssertFalse(removeCandy.isEnabled)
     app.buttons["Go to My Goals"].tap()
-    XCTAssertTrue(app.staticTexts["my-goals-screen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(element("my-goals-screen", in: app).waitForExistence(timeout: 5))
     XCTAssertTrue(primaryDestination("My Goals", in: app).isSelected)
   }
 

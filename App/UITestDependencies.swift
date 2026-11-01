@@ -5,6 +5,7 @@ nonisolated enum UITestMyDayMode: Equatable, Sendable {
   case populated
   case readFailure
   case mutationFailure
+  case myGoalsReadFailure
 }
 
 extension AppDependencies {
@@ -23,10 +24,12 @@ extension AppDependencies {
       switch mode {
       case .readFailure: FailingMyDayRepository(base: store, failsReads: true)
       case .mutationFailure: FailingMyDayRepository(base: store, failsReads: false)
-      case .empty, .populated: store
+      case .empty, .populated, .myGoalsReadFailure: store
       }
+    let planning: any PlanningRepository =
+      mode == .myGoalsReadFailure ? FailingPlanningRepository(base: store) : store
     return AppDependencies(
-      planning: store,
+      planning: planning,
       dailyTracking: dailyTracking,
       history: store,
       applicationPreparing: preparer,
@@ -113,5 +116,47 @@ private actor FailingMyDayRepository: DailyTrackingRepository {
   {
     if !failsReads { throw RepositoryError.persistenceFailure }
     return try await base.removeLatestIndulgence(categoryID: categoryID, on: day)
+  }
+}
+
+private actor FailingPlanningRepository: PlanningRepository {
+  let base: CadenceStore
+
+  init(base: CadenceStore) {
+    self.base = base
+  }
+
+  func plan(for week: WeekID) async throws -> WeeklyPlanSnapshot? {
+    try await base.plan(for: week)
+  }
+
+  func resolvePlan(for week: WeekID) throws -> WeeklyPlanSnapshot {
+    throw RepositoryError.persistenceFailure
+  }
+
+  func ensurePlan(for week: WeekID) async throws -> WeeklyPlanSnapshot {
+    try await base.ensurePlan(for: week)
+  }
+
+  func addGoal(to week: WeekID, configuration: GoalConfiguration) async throws
+    -> PlannedGoalSnapshot
+  {
+    try await base.addGoal(to: week, configuration: configuration)
+  }
+
+  func updateGoal(id: UUID, configuration: GoalConfiguration) async throws -> PlannedGoalSnapshot {
+    try await base.updateGoal(id: id, configuration: configuration)
+  }
+
+  func removeGoal(id: UUID, effectiveOn day: LocalDay) async throws -> PlannedGoalSnapshot {
+    try await base.removeGoal(id: id, effectiveOn: day)
+  }
+
+  func reorderGoals(in week: WeekID, orderedIDs: [UUID]) async throws -> WeeklyPlanSnapshot {
+    try await base.reorderGoals(in: week, orderedIDs: orderedIDs)
+  }
+
+  func carryForward(from source: WeekID, to target: WeekID) async throws -> WeeklyPlanSnapshot {
+    try await base.carryForward(from: source, to: target)
   }
 }

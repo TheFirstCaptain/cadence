@@ -52,6 +52,56 @@ actor CadenceStore:
     return try matches.first.map(planSnapshot)
   }
 
+  func resolvePlan(for week: WeekID) throws -> WeeklyPlanSnapshot {
+    let operation = operationContext()
+    return try resolvePlan(for: week, operation: operation)
+  }
+
+  private func resolvePlan(
+    for week: WeekID, operation: OperationContext
+  ) throws -> WeeklyPlanSnapshot {
+    try validateEditable(week: week, operation: operation)
+    if let existing = try plan(for: week) { return existing }
+
+    return try transaction {
+      let plans = try planRecords()
+      let grouped = Dictionary(grouping: plans, by: \.weekKey)
+      guard grouped.values.allSatisfy({ $0.count == 1 }) else {
+        throw RepositoryError.duplicatePlan
+      }
+      if let existing = grouped[week.canonicalKey]?.first {
+        return try planSnapshot(existing)
+      }
+
+      var reservedIDs: Set<UUID> = []
+      let priorPlans = try plans.map { ($0, try planSnapshot($0)) }
+        .filter { $0.1.week < week }
+        .sorted { $0.1.week < $1.1.week }
+      guard var source = priorPlans.last else {
+        let empty = try makePlanRecord(
+          for: week, operation: operation, reservedIDs: &reservedIDs)
+        return try planSnapshot(empty)
+      }
+
+      var nextMonday = source.1.week.monday.addingDays(7)
+      while let monday = nextMonday, monday <= week.monday {
+        guard let destinationWeek = WeekID(monday: monday) else {
+          throw RepositoryError.corruptedData
+        }
+        let destination = try carryForwardRecord(
+          from: source.0,
+          sourceWeek: source.1.week,
+          to: destinationWeek,
+          operation: operation,
+          reservedIDs: &reservedIDs)
+        source = (destination, try planSnapshot(destination))
+        nextMonday = monday.addingDays(7)
+      }
+      guard source.1.week == week else { throw RepositoryError.corruptedData }
+      return source.1
+    }
+  }
+
   func ensurePlan(for week: WeekID) throws -> WeeklyPlanSnapshot {
     if let existing = try plan(for: week) { return existing }
     let operation = operationContext()
@@ -179,46 +229,21 @@ actor CadenceStore:
     guard source.monday.addingDays(7) == target.monday else {
       throw RepositoryError.nonconsecutiveWeeks
     }
-    if let existing = try plan(for: target) { return existing }
     let operation = operationContext()
+    try validateEditable(week: target, operation: operation)
+    if let existing = try plan(for: target) { return existing }
     return try transaction {
       let sourcePlan = try requirePlan(source)
       guard try planRecords().allSatisfy({ $0.weekKey != target.canonicalKey }) else {
         throw RepositoryError.duplicatePlan
       }
-      let destination = WeeklyPlanRecord(
-        id: try nextUniqueID(),
-        monday: target.monday,
-        planningTimeZoneIdentifier: operation.timeZone.identifier,
-        planningUTCOffsetSeconds: operation.offset,
-        createdAt: operation.instant,
-        updatedAt: operation.instant
-      )
-      modelContext.insert(destination)
-      let sourceGoals = try goalRecords(forPlanID: sourcePlan.id)
-        .map { record in (record, try goalSnapshot(record)) }
-        .filter { $0.1.wasHistoricallyActive(on: source.sunday!) }
-        .sorted { $0.1.sortOrder < $1.1.sortOrder }
-      var reservedIDs: Set<UUID> = [destination.id]
-      for (goal, snapshot) in sourceGoals {
-        let id = try nextUniqueID(excluding: reservedIDs)
-        reservedIDs.insert(id)
-        let copy = PlannedGoalRecord(
-          id: id,
-          weeklyPlanID: destination.id,
-          lineageID: goal.lineageID,
-          name: snapshot.name,
-          normalizedName: goal.normalizedName,
-          frequencyKindRaw: snapshot.frequency.kind.rawValue,
-          customTarget: snapshot.frequency.kind == .custom ? snapshot.frequency.targetPerWeek : nil,
-          sortOrder: snapshot.sortOrder,
-          activeFrom: target.monday,
-          createdAt: operation.instant,
-          updatedAt: operation.instant,
-          weeklyPlan: destination
-        )
-        modelContext.insert(copy)
-      }
+      var reservedIDs: Set<UUID> = []
+      let destination = try carryForwardRecord(
+        from: sourcePlan,
+        sourceWeek: source,
+        to: target,
+        operation: operation,
+        reservedIDs: &reservedIDs)
       return try planSnapshot(destination)
     }
   }
@@ -229,7 +254,11 @@ actor CadenceStore:
 
   func myDaySnapshot(for day: LocalDay) throws -> MyDaySnapshot {
     guard let week = WeekID(containing: day) else { throw RepositoryError.corruptedData }
-    let plan = try plan(for: week)
+    let operation = operationContext()
+    let plan =
+      day == operation.day
+      ? try resolvePlan(for: week, operation: operation)
+      : try plan(for: week)
     let goals =
       plan?.goals
       .filter { $0.activeFrom <= day && $0.isCurrentlyOffered }
@@ -368,6 +397,64 @@ actor CadenceStore:
     let snapshot = try occurrenceSnapshot(record)
     try transaction { modelContext.delete(record) }
     return snapshot
+  }
+
+  private func makePlanRecord(
+    for week: WeekID,
+    operation: OperationContext,
+    reservedIDs: inout Set<UUID>
+  ) throws -> WeeklyPlanRecord {
+    let id = try nextUniqueID(excluding: reservedIDs)
+    reservedIDs.insert(id)
+    let record = WeeklyPlanRecord(
+      id: id,
+      monday: week.monday,
+      planningTimeZoneIdentifier: operation.timeZone.identifier,
+      planningUTCOffsetSeconds: operation.offset,
+      createdAt: operation.instant,
+      updatedAt: operation.instant)
+    modelContext.insert(record)
+    return record
+  }
+
+  private func carryForwardRecord(
+    from source: WeeklyPlanRecord,
+    sourceWeek: WeekID,
+    to target: WeekID,
+    operation: OperationContext,
+    reservedIDs: inout Set<UUID>
+  ) throws -> WeeklyPlanRecord {
+    guard sourceWeek.monday.addingDays(7) == target.monday else {
+      throw RepositoryError.nonconsecutiveWeeks
+    }
+    let destination = try makePlanRecord(
+      for: target, operation: operation, reservedIDs: &reservedIDs)
+    let sourceGoals = try goalRecords(forPlanID: source.id)
+      .map { record in (record, try goalSnapshot(record)) }
+      .filter { snapshot in
+        guard let sunday = sourceWeek.sunday else { return false }
+        return snapshot.1.wasHistoricallyActive(on: sunday)
+      }
+      .sorted { $0.1.sortOrder < $1.1.sortOrder }
+    for (goal, snapshot) in sourceGoals {
+      let id = try nextUniqueID(excluding: reservedIDs)
+      reservedIDs.insert(id)
+      let copy = PlannedGoalRecord(
+        id: id,
+        weeklyPlanID: destination.id,
+        lineageID: goal.lineageID,
+        name: snapshot.name,
+        normalizedName: goal.normalizedName,
+        frequencyKindRaw: snapshot.frequency.kind.rawValue,
+        customTarget: snapshot.frequency.kind == .custom ? snapshot.frequency.targetPerWeek : nil,
+        sortOrder: snapshot.sortOrder,
+        activeFrom: target.monday,
+        createdAt: operation.instant,
+        updatedAt: operation.instant,
+        weeklyPlan: destination)
+      modelContext.insert(copy)
+    }
+    return destination
   }
 
   private func makeDaySnapshot(_ day: LocalDay) throws -> DayActivitySnapshot {

@@ -6,6 +6,7 @@ nonisolated protocol ApplicationPreparing: Sendable {
 
 nonisolated protocol PlanningRepository: Sendable {
   func plan(for week: WeekID) async throws -> WeeklyPlanSnapshot?
+  func resolvePlan(for week: WeekID) async throws -> WeeklyPlanSnapshot
   func ensurePlan(for week: WeekID) async throws -> WeeklyPlanSnapshot
   func addGoal(to week: WeekID, configuration: GoalConfiguration) async throws
     -> PlannedGoalSnapshot

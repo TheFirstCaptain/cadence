@@ -19,6 +19,9 @@ struct CadenceApp: App {
     if arguments.contains("--ui-test-my-day-empty") {
       return { try AppDependencies.uiTest(.empty) }
     }
+    if arguments.contains("--ui-test-my-goals-read-failure") {
+      return { try AppDependencies.uiTest(.myGoalsReadFailure) }
+    }
     return AppDependencies.live
   }
 

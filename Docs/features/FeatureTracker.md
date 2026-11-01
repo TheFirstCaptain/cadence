@@ -21,7 +21,7 @@ Use one outcome-oriented record per coherent capability. Keep implementation det
 | F-003B | My Day Goal Checkoffs | Complete | Done | [F-003B.md](./F-003B.md) | 2026-11-01 | One-tap complete/undo, rollback, relaunch, concurrency guards, 56-test full gate, independent review, and manual accessibility validation passed. |
 | F-003C | iIndulged Quick Logging | Complete | Done | [F-003C.md](./F-003C.md) | 2026-11-01 | Atomic counters, production symbol reconciliation, rollback, local-day concurrency guards, full-gate evidence, and manual validation passed. |
 | F-004 | My Goals | Active | Approved | [F-004.md](./F-004.md) | 2026-11-01 | Clarification is complete; delivery is split into weekly lifecycle, Goal editor, and organization/removal slices. |
-| F-004A | Weekly Plan Lifecycle | Active | Approved | [F-004A.md](./F-004A.md) | 2026-11-01 | Owns target-week selection, Sunday Planning, automatic carry-forward, boundary refresh, and My Goals screen states. |
+| F-004A | Weekly Plan Lifecycle | Active | Building | [F-004A.md](./F-004A.md) | 2026-11-01 | Tier 3 planning is complete; atomic multi-week carry-forward, My Goals states, and My Day integration are in implementation. |
 | F-004B | Goal Editor | Active | Approved | [F-004B.md](./F-004B.md) | 2026-11-01 | Owns focused add/edit, frequency controls, the 60-character limit, duplicate validation, and active-week changes. |
 | F-004C | Goal Organization and Removal | Active | Approved | [F-004C.md](./F-004C.md) | 2026-11-01 | Owns persisted ordering, guidance beginning at 8 Goals, confirmation, and history-preserving removal. |
 | F-005 | History | Active | Clarifying | [F-005.md](./F-005.md) | 2026-10-25 | Current Week, calendar Month, drill-down, correction, and stable local-date behavior defined. |

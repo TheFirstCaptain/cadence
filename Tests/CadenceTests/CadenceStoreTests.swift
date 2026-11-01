@@ -154,26 +154,31 @@ struct CadenceStoreTests {
 
   @Test
   func carryForwardCopiesOrderedActiveGoalsWithStableLineage() async throws {
-    let store = try makeStore()
-    _ = try await store.ensurePlan(for: week)
-    let daily = try await store.addGoal(
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let sourceStore = CadenceStore(modelContainer: container, dependencies: dependencies())
+    _ = try await sourceStore.ensurePlan(for: week)
+    let daily = try await sourceStore.addGoal(
       to: week,
       configuration: GoalConfiguration(name: "Walk", frequency: .daily)
     )
-    let custom = try await store.addGoal(
+    let custom = try await sourceStore.addGoal(
       to: week,
       configuration: GoalConfiguration(name: "Read", frequency: .custom(daysPerWeek: 3)!)
     )
-    let ended = try await store.addGoal(
+    let ended = try await sourceStore.addGoal(
       to: week,
       configuration: GoalConfiguration(name: "Temporary", frequency: .weekly)
     )
-    _ = try await store.removeGoal(
+    _ = try await sourceStore.removeGoal(
       id: ended.id,
       effectiveOn: LocalDay(year: 2026, month: 10, day: 28)!
     )
-    _ = try await store.reorderGoals(in: week, orderedIDs: [custom.id, daily.id])
-    let sourceBefore = try #require(try await store.plan(for: week))
+    _ = try await sourceStore.reorderGoals(in: week, orderedIDs: [custom.id, daily.id])
+    let sourceBefore = try #require(try await sourceStore.plan(for: week))
+
+    let sunday = ISO8601DateFormatter().date(from: "2026-11-01T16:00:00Z")!
+    let store = CadenceStore(
+      modelContainer: container, dependencies: dependencies(instant: sunday))
     let target = WeekID(monday: LocalDay(year: 2026, month: 11, day: 2)!)!
 
     let carried = try await store.carryForward(from: week, to: target)
@@ -184,6 +189,115 @@ struct CadenceStoreTests {
     #expect(carried.goals.allSatisfy { $0.activeFrom == target.monday && $0.activeThrough == nil })
     #expect(Set(carried.goals.map(\.id)).isDisjoint(with: sourceBefore.goals.map(\.id)))
     #expect(try await store.plan(for: week) == sourceBefore)
+  }
+
+  @Test
+  func resolvePlanCreatesEmptyFirstPlanAndReturnsExistingIdentity() async throws {
+    let store = try makeStore()
+
+    let created = try await store.resolvePlan(for: week)
+    let repeated = try await store.resolvePlan(for: week)
+
+    #expect(created.id == repeated.id)
+    #expect(created.week == week)
+    #expect(created.goals.isEmpty)
+  }
+
+  @Test
+  func concurrentResolutionReturnsOnePlanIdentity() async throws {
+    let store = try makeStore()
+    let plans = try await withThrowingTaskGroup(of: WeeklyPlanSnapshot.self) { group in
+      for _ in 0..<8 { group.addTask { try await store.resolvePlan(for: self.week) } }
+      var results: [WeeklyPlanSnapshot] = []
+      for try await plan in group { results.append(plan) }
+      return results
+    }
+    #expect(Set(plans.map(\.id)).count == 1)
+  }
+
+  @Test
+  func historicalMyDayReadNeverMaterializesAPlan() async throws {
+    let store = try makeStore()
+    let day = LocalDay(year: 2026, month: 10, day: 20)!
+    let historicalWeek = WeekID(containing: day)!
+
+    #expect(try await store.myDaySnapshot(for: day).goals.isEmpty)
+    #expect(try await store.plan(for: historicalWeek) == nil)
+  }
+
+  @Test
+  func existingTargetPlanRemainsAuthoritative() async throws {
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let sourceStore = CadenceStore(modelContainer: container, dependencies: dependencies())
+    _ = try await sourceStore.ensurePlan(for: week)
+    _ = try await sourceStore.addGoal(
+      to: week, configuration: GoalConfiguration(name: "Walk", frequency: .daily))
+    let laterInstant = ISO8601DateFormatter().date(from: "2026-11-04T16:00:00Z")!
+    let laterStore = CadenceStore(
+      modelContainer: container, dependencies: dependencies(instant: laterInstant))
+    let target = WeekID(monday: LocalDay(year: 2026, month: 11, day: 2)!)!
+    let existing = try await laterStore.ensurePlan(for: target)
+
+    let resolved = try await laterStore.resolvePlan(for: target)
+
+    #expect(resolved.id == existing.id)
+    #expect(resolved.goals.isEmpty)
+  }
+
+  @Test
+  func resolvePlanMaterializesEveryMissingWeekAndMyDayUsesTheCurrentResult() async throws {
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let sourceStore = CadenceStore(modelContainer: container, dependencies: dependencies())
+    _ = try await sourceStore.ensurePlan(for: week)
+    let goal = try await sourceStore.addGoal(
+      to: week, configuration: GoalConfiguration(name: "Walk", frequency: .daily))
+
+    let laterInstant = ISO8601DateFormatter().date(from: "2026-11-18T16:00:00Z")!
+    let laterStore = CadenceStore(
+      modelContainer: container, dependencies: dependencies(instant: laterInstant))
+    let target = WeekID(monday: LocalDay(year: 2026, month: 11, day: 16)!)!
+
+    let myDay = try await laterStore.myDaySnapshot(
+      for: LocalDay(year: 2026, month: 11, day: 18)!)
+    let resolved = try #require(try await laterStore.plan(for: target))
+
+    #expect(resolved.goals.map(\.name) == ["Walk"])
+    #expect(resolved.goals.map(\.lineageID) == [goal.lineageID])
+    #expect(myDay.goals.map(\.name) == ["Walk"])
+    #expect(
+      try await laterStore.plan(
+        for: WeekID(monday: LocalDay(year: 2026, month: 11, day: 2)!)!) != nil)
+    #expect(
+      try await laterStore.plan(
+        for: WeekID(monday: LocalDay(year: 2026, month: 11, day: 9)!)!) != nil)
+  }
+
+  @Test
+  func failedMultiWeekResolutionRollsBackTheCompleteChain() async throws {
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let sourceStore = CadenceStore(modelContainer: container, dependencies: dependencies())
+    _ = try await sourceStore.ensurePlan(for: week)
+    _ = try await sourceStore.addGoal(
+      to: week, configuration: GoalConfiguration(name: "Walk", frequency: .daily))
+    let laterInstant = ISO8601DateFormatter().date(from: "2026-11-18T16:00:00Z")!
+    let failingStore = CadenceStore(
+      modelContainer: container,
+      dependencies: dependencies(instant: laterInstant, beforeSave: { throw InjectedFailure() }))
+    let target = WeekID(monday: LocalDay(year: 2026, month: 11, day: 16)!)!
+
+    await expectError(.persistenceFailure) {
+      try await failingStore.resolvePlan(for: target)
+    }
+
+    #expect(try await failingStore.plan(for: target) == nil)
+    #expect(
+      try await failingStore.plan(
+        for: WeekID(monday: LocalDay(year: 2026, month: 11, day: 2)!)!) == nil)
+
+    let retryStore = CadenceStore(
+      modelContainer: container, dependencies: dependencies(instant: laterInstant))
+    let retried = try await retryStore.resolvePlan(for: target)
+    #expect(retried.goals.map(\.name) == ["Walk"])
   }
 
   @Test
@@ -225,13 +339,16 @@ struct CadenceStoreTests {
   @Test
   func failedCarryForwardRollsBackTheWholeDestination() async throws {
     let calls = Mutex(0)
-    let store = try makeStore(beforeSave: {
-      let shouldFail = calls.withLock { count in
-        count += 1
-        return count == 3
-      }
-      if shouldFail { throw InjectedFailure() }
-    })
+    let sunday = ISO8601DateFormatter().date(from: "2026-11-01T16:00:00Z")!
+    let store = try makeStore(
+      instant: sunday,
+      beforeSave: {
+        let shouldFail = calls.withLock { count in
+          count += 1
+          return count == 3
+        }
+        if shouldFail { throw InjectedFailure() }
+      })
     _ = try await store.ensurePlan(for: week)
     _ = try await store.addGoal(
       to: week,

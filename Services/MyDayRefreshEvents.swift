@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-nonisolated struct MyDayRefreshEvents: Sendable {
+nonisolated struct LocalCalendarRefreshEvents: Sendable {
   private let makeStream: @Sendable () -> AsyncStream<Void>
 
   init(makeStream: @escaping @Sendable () -> AsyncStream<Void>) {
@@ -12,7 +12,7 @@ nonisolated struct MyDayRefreshEvents: Sendable {
     makeStream()
   }
 
-  static let live = MyDayRefreshEvents {
+  static let live = LocalCalendarRefreshEvents {
     AsyncStream { continuation in
       let boundaryScheduler = LocalDayBoundaryScheduler()
       let task = Task {

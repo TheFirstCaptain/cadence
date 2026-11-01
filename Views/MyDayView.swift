@@ -311,13 +311,13 @@ struct MyDayView: View {
   @StateObject private var model: MyDayModel
 
   private let onOpenGoals: () -> Void
-  private let refreshEvents: MyDayRefreshEvents
+  private let refreshEvents: LocalCalendarRefreshEvents
 
   init(
     repository: any DailyTrackingRepository,
     date: DateProvider,
     timeZone: CurrentTimeZoneProvider,
-    refreshEvents: MyDayRefreshEvents = .live,
+    refreshEvents: LocalCalendarRefreshEvents = .live,
     onOpenGoals: @escaping () -> Void
   ) {
     _model = StateObject(
