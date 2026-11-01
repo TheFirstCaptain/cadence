@@ -1,5 +1,6 @@
 import Combine
 import SwiftUI
+import UIKit
 
 nonisolated struct MyDayGoalRow: Hashable, Sendable, Identifiable {
   let id: UUID
@@ -11,11 +12,19 @@ nonisolated struct MyDayGoalRow: Hashable, Sendable, Identifiable {
   var canToggle: Bool { isCompleteToday || completed < target }
 }
 
+nonisolated struct MyDayIndulgenceRow: Hashable, Sendable, Identifiable {
+  let id: UUID
+  let name: String
+  let symbolName: String
+  let count: Int
+}
+
 nonisolated struct MyDayPresentation: Hashable, Sendable {
   let day: LocalDay
   let week: WeekID
   let today: [MyDayGoalRow]
   let thisWeek: [MyDayGoalRow]
+  let indulgences: [MyDayIndulgenceRow]
 
   var isEmpty: Bool { today.isEmpty && thisWeek.isEmpty }
 
@@ -23,12 +32,14 @@ nonisolated struct MyDayPresentation: Hashable, Sendable {
     day: LocalDay,
     week: WeekID,
     today: [MyDayGoalRow],
-    thisWeek: [MyDayGoalRow]
+    thisWeek: [MyDayGoalRow],
+    indulgences: [MyDayIndulgenceRow]
   ) {
     self.day = day
     self.week = week
     self.today = today
     self.thisWeek = thisWeek
+    self.indulgences = indulgences
   }
 
   init(snapshot: MyDaySnapshot) {
@@ -52,6 +63,15 @@ nonisolated struct MyDayPresentation: Hashable, Sendable {
     thisWeek = zip(snapshot.goals, rows).compactMap { goal, row in
       goal.frequency.kind == .daily ? nil : row
     }
+    let occurrenceCounts = Dictionary(grouping: snapshot.todayOccurrences, by: \.categoryID)
+      .mapValues(\.count)
+    indulgences = snapshot.categories.map { category in
+      MyDayIndulgenceRow(
+        id: category.id,
+        name: category.name,
+        symbolName: category.symbolName,
+        count: occurrenceCounts[category.id, default: 0])
+    }
   }
 
   func togglingGoal(id: UUID) -> MyDayPresentation {
@@ -70,8 +90,25 @@ nonisolated struct MyDayPresentation: Hashable, Sendable {
       day: day,
       week: week,
       today: today.map(toggled),
-      thisWeek: thisWeek.map(toggled)
+      thisWeek: thisWeek.map(toggled),
+      indulgences: indulgences
     )
+  }
+
+  func adjustingIndulgence(id: UUID, delta: Int) -> MyDayPresentation {
+    MyDayPresentation(
+      day: day,
+      week: week,
+      today: today,
+      thisWeek: thisWeek,
+      indulgences: indulgences.map { row in
+        guard row.id == id else { return row }
+        return MyDayIndulgenceRow(
+          id: row.id,
+          name: row.name,
+          symbolName: row.symbolName,
+          count: max(0, row.count + delta))
+      })
   }
 }
 
@@ -85,8 +122,11 @@ final class MyDayModel: ObservableObject {
 
   @Published private(set) var state: State = .loading
   @Published private(set) var mutatingGoalID: UUID?
+  @Published private(set) var mutatingIndulgenceID: UUID?
   @Published private(set) var mutationMessage: String?
+  @Published private(set) var indulgenceMutationMessage: String?
   @Published private(set) var successfulMutationCount = 0
+  @Published private(set) var accessibilityAnnouncement: String?
 
   private let repository: any DailyTrackingRepository
   private let date: DateProvider
@@ -113,7 +153,7 @@ final class MyDayModel: ObservableObject {
   }
 
   func refreshFromForeground() async {
-    guard mutatingGoalID == nil else {
+    guard !isMutating else {
       refreshPending = true
       return
     }
@@ -121,7 +161,7 @@ final class MyDayModel: ObservableObject {
   }
 
   func refreshFromBoundaryEvent() async {
-    guard mutatingGoalID == nil else {
+    guard !isMutating else {
       refreshPending = true
       return
     }
@@ -136,7 +176,7 @@ final class MyDayModel: ObservableObject {
   }
 
   func toggle(_ row: MyDayGoalRow) async {
-    guard mutatingGoalID == nil, row.canToggle,
+    guard !isMutating, row.canToggle,
       case .ready(let presentation) = state
     else { return }
 
@@ -177,6 +217,65 @@ final class MyDayModel: ObservableObject {
     }
   }
 
+  func addIndulgence(_ row: MyDayIndulgenceRow) async {
+    await mutateIndulgence(row, delta: 1)
+  }
+
+  func removeIndulgence(_ row: MyDayIndulgenceRow) async {
+    guard row.count > 0 else { return }
+    await mutateIndulgence(row, delta: -1)
+  }
+
+  private func mutateIndulgence(_ row: MyDayIndulgenceRow, delta: Int) async {
+    guard !isMutating, case .ready(let presentation) = state else { return }
+    let identity = currentIdentity()
+    guard presentation.day == identity.day, presentation.week == identity.week else {
+      await load(showLoading: false)
+      return
+    }
+
+    generation += 1
+    let mutationGeneration = generation
+    let previous = presentation
+    indulgenceMutationMessage = nil
+    accessibilityAnnouncement = nil
+    mutatingIndulgenceID = row.id
+    state = .ready(presentation.adjustingIndulgence(id: row.id, delta: delta))
+    var mutationFailed = false
+
+    do {
+      if delta > 0 {
+        let occurrence = try await repository.recordIndulgence(categoryID: row.id)
+        if occurrence.localDay != identity.day { refreshPending = true }
+      } else {
+        guard
+          try await repository.removeLatestIndulgence(categoryID: row.id, on: identity.day)
+            != nil
+        else { throw RepositoryError.persistenceFailure }
+      }
+      if mutationGeneration == generation {
+        successfulMutationCount += 1
+        if case .ready(let updated) = state,
+          let updatedRow = updated.indulgences.first(where: { $0.id == row.id })
+        {
+          accessibilityAnnouncement = "\(updatedRow.name), \(updatedRow.count) today"
+        }
+      }
+    } catch {
+      mutationFailed = true
+      if mutationGeneration == generation {
+        state = .ready(previous)
+        indulgenceMutationMessage = "Couldn’t update this count. Please try again."
+      }
+    }
+
+    mutatingIndulgenceID = nil
+    if refreshPending {
+      refreshPending = false
+      await load(showLoading: false, clearMutationMessage: !mutationFailed)
+    }
+  }
+
   private func load(showLoading: Bool, clearMutationMessage: Bool = true) async {
     generation += 1
     let requestGeneration = generation
@@ -186,6 +285,7 @@ final class MyDayModel: ObservableObject {
       let snapshot = try await repository.myDaySnapshot(for: identity.day)
       guard requestGeneration == generation else { return }
       if clearMutationMessage { mutationMessage = nil }
+      if clearMutationMessage { indulgenceMutationMessage = nil }
       state = .ready(MyDayPresentation(snapshot: snapshot))
     } catch {
       guard requestGeneration == generation else { return }
@@ -199,6 +299,10 @@ final class MyDayModel: ObservableObject {
     let calendar = GregorianCalendarService(timeZone: zone)
     let day = calendar.localDay(containing: instant)
     return (day, calendar.week(containing: instant))
+  }
+
+  private var isMutating: Bool {
+    mutatingGoalID != nil || mutatingIndulgenceID != nil
   }
 }
 
@@ -227,14 +331,7 @@ struct MyDayView: View {
       ScrollView {
         VStack(alignment: .leading, spacing: 24) {
           goalsSection
-          VStack(alignment: .leading, spacing: 8) {
-            Text("iIndulged")
-              .font(.title2.bold())
-              .accessibilityAddTraits(.isHeader)
-            Text("Quick logging will appear here.")
-              .foregroundStyle(.secondary)
-          }
-          .accessibilityIdentifier("iindulged-section")
+          indulgencesSection
         }
         .padding()
       }
@@ -252,6 +349,10 @@ struct MyDayView: View {
       Task { await model.refreshFromForeground() }
     }
     .sensoryFeedback(.selection, trigger: model.successfulMutationCount)
+    .onChange(of: model.accessibilityAnnouncement) { _, announcement in
+      guard let announcement else { return }
+      UIAccessibility.post(notification: .announcement, argument: announcement)
+    }
   }
 
   @ViewBuilder
@@ -267,7 +368,7 @@ struct MyDayView: View {
           .frame(maxWidth: .infinity, alignment: .leading)
       case .failed:
         ContentUnavailableView {
-          Label("Your Goals couldn’t be refreshed", systemImage: "arrow.clockwise.circle")
+          Label("Your day couldn’t be refreshed", systemImage: "arrow.clockwise.circle")
         } description: {
           Text("Please try again when you’re ready.")
         } actions: {
@@ -301,6 +402,58 @@ struct MyDayView: View {
     .accessibilityIdentifier("goals-section")
   }
 
+  @ViewBuilder
+  private var indulgencesSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("iIndulged")
+        .font(.title2.bold())
+        .accessibilityAddTraits(.isHeader)
+      if case .ready(let presentation) = model.state {
+        if let message = model.indulgenceMutationMessage {
+          Text(message)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+        }
+        ForEach(presentation.indulgences) { row in
+          HStack(spacing: 12) {
+            Image(systemName: row.symbolName)
+              .frame(width: 24)
+              .accessibilityHidden(true)
+            Text(row.name)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+              Task { await model.removeIndulgence(row) }
+            } label: {
+              Image(systemName: "minus.circle")
+            }
+            .accessibilityLabel("Remove \(row.name) occurrence")
+            .disabled(
+              row.count == 0 || model.mutatingGoalID != nil
+                || model.mutatingIndulgenceID != nil)
+            Text("\(row.count)")
+              .monospacedDigit()
+              .frame(minWidth: 28)
+              .accessibilityLabel("\(row.count) today")
+            Button {
+              Task { await model.addIndulgence(row) }
+            } label: {
+              Image(systemName: "plus.circle")
+            }
+            .accessibilityLabel("Add \(row.name) occurrence")
+            .disabled(model.mutatingGoalID != nil || model.mutatingIndulgenceID != nil)
+          }
+          .accessibilityIdentifier("indulgence-row-\(row.id.uuidString)")
+        }
+      } else if case .loading = model.state {
+        ProgressView("Loading iIndulged")
+      } else {
+        Text("Counts are unavailable right now.")
+          .foregroundStyle(.secondary)
+      }
+    }
+    .accessibilityIdentifier("iindulged-section")
+  }
+
   private func goalGroup(
     _ title: String,
     rows: [MyDayGoalRow],
@@ -330,7 +483,9 @@ struct MyDayView: View {
           .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(model.mutatingGoalID != nil || !row.canToggle)
+        .disabled(
+          model.mutatingGoalID != nil || model.mutatingIndulgenceID != nil || !row.canToggle
+        )
         .padding(.vertical, 6)
         .accessibilityLabel(
           showsProgress

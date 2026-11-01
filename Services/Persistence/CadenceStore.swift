@@ -240,12 +240,23 @@ actor CadenceStore:
       .filter { goalIDs.contains($0.plannedGoalID) && weekDayKeys.contains($0.localDayKey) }
       .map(checkoffSnapshot)
       .sorted { $0.instant < $1.instant }
+    let categories = try categoryRecords()
+      .filter(\.isActive)
+      .map(categorySnapshot)
+      .sorted { $0.sortOrder < $1.sortOrder }
+    let categoryIDs = Set(categories.map(\.id))
+    let todayOccurrences = try occurrenceRecords()
+      .filter { categoryIDs.contains($0.categoryID) && $0.localDayKey == day.canonicalKey }
+      .map(occurrenceSnapshot)
+      .sorted { $0.instant < $1.instant }
     return MyDaySnapshot(
       day: day,
       week: week,
       goals: goals,
       todayCheckoffs: weekCheckoffs.filter { $0.localDay == day },
-      weekCheckoffs: weekCheckoffs
+      weekCheckoffs: weekCheckoffs,
+      categories: categories,
+      todayOccurrences: todayOccurrences
     )
   }
 
@@ -337,6 +348,7 @@ actor CadenceStore:
   func removeLatestIndulgence(categoryID: UUID, on day: LocalDay) throws
     -> IndulgenceOccurrenceSnapshot?
   {
+    guard day == operationContext().day else { throw RepositoryError.staleDay }
     let candidates = try occurrenceRecords().filter {
       $0.categoryID == categoryID && $0.localDayKey == day.canonicalKey
     }
@@ -632,21 +644,30 @@ actor CadenceStore:
   }
 
   private func seedBuiltInCategories() throws {
-    let existingIDs = Set(try categoryRecords().map(\.id))
+    let existing = try categoryRecords()
     let now = dependencies.date.now()
-    for category in BuiltInIndulgenceCategories.all where !existingIDs.contains(category.id) {
-      modelContext.insert(
-        IndulgenceCategoryRecord(
-          id: category.id,
-          name: category.name,
-          normalizedName: category.normalizedName,
-          symbolName: category.symbolName,
-          sortOrder: category.sortOrder,
-          isBuiltIn: true,
-          isActive: true,
-          createdAt: now,
-          updatedAt: now
-        ))
+    for category in BuiltInIndulgenceCategories.all {
+      let matches = existing.filter { $0.id == category.id }
+      guard matches.count <= 1 else { throw RepositoryError.corruptedData }
+      if let record = matches.first {
+        if record.symbolName != category.symbolName {
+          record.symbolName = category.symbolName
+          record.updatedAt = now
+        }
+      } else {
+        modelContext.insert(
+          IndulgenceCategoryRecord(
+            id: category.id,
+            name: category.name,
+            normalizedName: category.normalizedName,
+            symbolName: category.symbolName,
+            sortOrder: category.sortOrder,
+            isBuiltIn: true,
+            isActive: true,
+            createdAt: now,
+            updatedAt: now
+          ))
+      }
     }
   }
 

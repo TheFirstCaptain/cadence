@@ -70,6 +70,8 @@ private actor UITestMyDayPreparer: ApplicationPreparing {
     _ = try await store.recordCheckoff(goalID: daily.id, on: day)
     _ = try await store.recordCheckoff(goalID: custom.id, on: day)
     _ = try await store.recordCheckoff(goalID: custom.id, on: day.addingDays(1)!)
+    _ = try await store.recordIndulgence(categoryID: BuiltInIndulgenceCategories.all[2].id)
+    _ = try await store.recordIndulgence(categoryID: BuiltInIndulgenceCategories.all[2].id)
   }
 }
 
@@ -102,12 +104,14 @@ private actor FailingMyDayRepository: DailyTrackingRepository {
   }
 
   func recordIndulgence(categoryID: UUID) async throws -> IndulgenceOccurrenceSnapshot {
-    try await base.recordIndulgence(categoryID: categoryID)
+    if !failsReads { throw RepositoryError.persistenceFailure }
+    return try await base.recordIndulgence(categoryID: categoryID)
   }
 
   func removeLatestIndulgence(categoryID: UUID, on day: LocalDay) async throws
     -> IndulgenceOccurrenceSnapshot?
   {
-    try await base.removeLatestIndulgence(categoryID: categoryID, on: day)
+    if !failsReads { throw RepositoryError.persistenceFailure }
+    return try await base.removeLatestIndulgence(categoryID: categoryID, on: day)
   }
 }

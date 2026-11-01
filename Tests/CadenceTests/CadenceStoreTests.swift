@@ -28,6 +28,7 @@ struct CadenceStoreTests {
   @Test
   func myDayReadIsAtomicWeekBoundedOrderedAndUsesCurrentOfferingSemantics() async throws {
     let store = try makeStore()
+    try await store.prepare()
     _ = try await store.ensurePlan(for: week)
     let daily = try await store.addGoal(
       to: week, configuration: GoalConfiguration(name: "Walk", frequency: .daily))
@@ -40,6 +41,8 @@ struct CadenceStoreTests {
     let customToday = try await store.recordCheckoff(goalID: custom.id, on: wednesday)
     _ = try await store.recordCheckoff(goalID: custom.id, on: thursday)
     let todayCheckoff = try await store.recordCheckoff(goalID: daily.id, on: wednesday)
+    let candyID = BuiltInIndulgenceCategories.all[2].id
+    _ = try await store.recordIndulgence(categoryID: candyID)
 
     let snapshot = try await store.myDaySnapshot(for: wednesday)
 
@@ -48,6 +51,8 @@ struct CadenceStoreTests {
     #expect(snapshot.goals.map(\.id) == [custom.id, daily.id])
     #expect(Set(snapshot.todayCheckoffs.map(\.id)) == [customToday.id, todayCheckoff.id])
     #expect(Set(snapshot.weekCheckoffs.map(\.localDay)) == [wednesday, thursday])
+    #expect(snapshot.categories.map(\.name) == BuiltInIndulgenceCategories.all.map(\.name))
+    #expect(snapshot.todayOccurrences.map(\.categoryID) == [candyID])
 
     _ = try await store.removeGoal(id: daily.id, effectiveOn: wednesday)
     #expect(try await store.myDaySnapshot(for: wednesday).goals.map(\.id) == [custom.id])
@@ -263,6 +268,71 @@ struct CadenceStoreTests {
   }
 
   @Test
+  func currentDayIndulgenceRemovalRejectsAStaleDisplayedDay() async throws {
+    let store = try makeStore()
+    try await store.prepare()
+    let category = BuiltInIndulgenceCategories.all[0]
+    let occurrence = try await store.recordIndulgence(categoryID: category.id)
+    let staleDay = LocalDay(year: 2026, month: 10, day: 27)!
+
+    await expectError(.staleDay) {
+      try await store.removeLatestIndulgence(categoryID: category.id, on: staleDay)
+    }
+    #expect(
+      try await store.dayHistory(for: occurrence.localDay).occurrences.map(\.id) == [occurrence.id])
+  }
+
+  @Test
+  func indulgenceRecordingCapturesInjectedPostDSTContext() async throws {
+    let winterInstant = ISO8601DateFormatter().date(from: "2026-11-04T16:00:00Z")!
+    let store = try makeStore(instant: winterInstant)
+    try await store.prepare()
+
+    let occurrence = try await store.recordIndulgence(
+      categoryID: BuiltInIndulgenceCategories.all[0].id)
+
+    #expect(occurrence.instant == winterInstant)
+    #expect(occurrence.localDay == LocalDay(year: 2026, month: 11, day: 4))
+    #expect(occurrence.timeZoneIdentifier == newYork.identifier)
+    #expect(occurrence.utcOffsetSeconds == -18_000)
+    #expect(occurrence.createdAt == winterInstant)
+    #expect(occurrence.updatedAt == winterInstant)
+  }
+
+  @Test
+  func prepareReconcilesBuiltInSymbolsWithoutChangingArchivedStateOrHistory() async throws {
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let context = ModelContext(container)
+    let builtIn = BuiltInIndulgenceCategories.all[0]
+    let originalDate = now.addingTimeInterval(-100)
+    let occurrenceDay = LocalDay(year: 2026, month: 10, day: 27)!
+    let occurrenceID = UUID()
+    let archived = IndulgenceCategoryRecord(
+      id: builtIn.id, name: builtIn.name, normalizedName: builtIn.normalizedName,
+      symbolName: "circle", sortOrder: builtIn.sortOrder, isBuiltIn: true, isActive: false,
+      createdAt: originalDate, updatedAt: originalDate)
+    let occurrence = IndulgenceOccurrenceRecord(
+      id: occurrenceID, categoryID: builtIn.id, instant: originalDate,
+      localDay: occurrenceDay,
+      timeZoneIdentifier: newYork.identifier, utcOffsetSeconds: -14_400,
+      createdAt: originalDate, updatedAt: originalDate, category: archived)
+    context.insert(archived)
+    context.insert(occurrence)
+    try context.save()
+
+    let store = CadenceStore(modelContainer: container, dependencies: dependencies())
+    try await store.prepare()
+
+    let saved = try ModelContext(container).fetch(FetchDescriptor<IndulgenceCategoryRecord>())
+    let reconciled = try #require(saved.first { $0.id == builtIn.id })
+    #expect(reconciled.symbolName == builtIn.symbolName)
+    #expect(reconciled.isActive == false)
+    #expect(reconciled.createdAt == originalDate)
+    #expect(
+      try await store.dayHistory(for: occurrenceDay).occurrences.map(\.id) == [occurrenceID])
+  }
+
+  @Test
   func failedTransactionRollsBackBeforeLaterSuccess() async throws {
     let calls = Mutex(0)
     let store = try makeStore(beforeSave: {
@@ -357,6 +427,7 @@ struct CadenceStoreTests {
     do {
       let container = try CadenceModelContainerFactory.makeProductionContainer(url: url)
       let store = CadenceStore(modelContainer: container, dependencies: dependencies())
+      try await store.prepare()
       planID = try await store.ensurePlan(for: week).id
       let goal = try await store.addGoal(
         to: week,
@@ -364,6 +435,7 @@ struct CadenceStoreTests {
       )
       goalID = goal.id
       _ = try await store.recordCheckoff(goalID: goal.id, on: day)
+      _ = try await store.recordIndulgence(categoryID: BuiltInIndulgenceCategories.all[2].id)
     }
 
     do {
@@ -376,6 +448,7 @@ struct CadenceStoreTests {
       let myDay = try await reopened.myDaySnapshot(for: day)
       #expect(myDay.todayCheckoffs.map(\.plannedGoalID) == [expectedGoalID])
       #expect(myDay.weekCheckoffs.map(\.plannedGoalID) == [expectedGoalID])
+      #expect(myDay.todayOccurrences.map(\.categoryID) == [BuiltInIndulgenceCategories.all[2].id])
     }
   }
 

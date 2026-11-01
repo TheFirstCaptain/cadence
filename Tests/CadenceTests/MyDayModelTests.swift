@@ -335,6 +335,139 @@ struct MyDayModelTests {
     #expect(await repository.readCount == 3)
   }
 
+  @Test
+  func indulgencePresentationPreservesOrderAndCountsOccurrences() throws {
+    let candy = indulgenceCategory(name: "Candy", symbol: "birthday.cake", order: 1)
+    let alcohol = indulgenceCategory(name: "Alcohol", symbol: "wineglass", order: 2)
+    let snapshot = MyDaySnapshot(
+      day: wednesday, week: WeekID(containing: wednesday)!, goals: [], todayCheckoffs: [],
+      weekCheckoffs: [], categories: [candy, alcohol],
+      todayOccurrences: [
+        occurrence(categoryID: candy.id), occurrence(categoryID: candy.id),
+      ])
+
+    let rows = MyDayPresentation(snapshot: snapshot).indulgences
+
+    #expect(rows.map(\.name) == ["Candy", "Alcohol"])
+    #expect(rows.map(\.symbolName) == ["birthday.cake", "wineglass"])
+    #expect(rows.map(\.count) == [2, 0])
+  }
+
+  @Test
+  func indulgencePlusMinusZeroAndFailureStayCoherent() async throws {
+    let candy = indulgenceCategory(name: "Candy", symbol: "birthday.cake", order: 0)
+    let snapshot = MyDaySnapshot(
+      day: wednesday, week: WeekID(containing: wednesday)!, goals: [], todayCheckoffs: [],
+      weekCheckoffs: [], categories: [candy], todayOccurrences: [])
+    let repository = ToggleDailyTrackingRepository(snapshot: snapshot)
+    let model = makeModel(repository: repository)
+    await model.loadInitial()
+    var row = try #require(readyPresentation(model.state).indulgences.first)
+
+    await model.removeIndulgence(row)
+    #expect(await repository.indulgenceMutations.isEmpty)
+    await model.addIndulgence(row)
+    row = try #require(readyPresentation(model.state).indulgences.first)
+    #expect(row.count == 1)
+    #expect(model.accessibilityAnnouncement == "Candy, 1 today")
+    await model.removeIndulgence(row)
+    #expect(try readyPresentation(model.state).indulgences.first?.count == 0)
+    #expect(model.accessibilityAnnouncement == "Candy, 0 today")
+    #expect(
+      await repository.indulgenceMutations
+        == [.add(candy.id), .remove(candy.id, wednesday)])
+
+    let failing = ToggleDailyTrackingRepository(snapshot: snapshot, failsIndulgence: true)
+    let failingModel = makeModel(repository: failing)
+    await failingModel.loadInitial()
+    await failingModel.addIndulgence(
+      try #require(readyPresentation(failingModel.state).indulgences.first))
+    #expect(try readyPresentation(failingModel.state).indulgences.first?.count == 0)
+    #expect(failingModel.accessibilityAnnouncement == nil)
+    #expect(
+      failingModel.indulgenceMutationMessage == "Couldn’t update this count. Please try again.")
+  }
+
+  @Test
+  func staleIndulgenceIntentRefreshesWithoutWriting() async throws {
+    let thursday = wednesday.addingDays(1)!
+    let candy = indulgenceCategory(name: "Candy", symbol: "birthday.cake", order: 0)
+    let dates = Mutex(instant(for: wednesday))
+    let repository = ToggleDailyTrackingRepository(snapshots: [
+      wednesday: MyDaySnapshot(
+        day: wednesday, week: WeekID(containing: wednesday)!, goals: [],
+        todayCheckoffs: [], weekCheckoffs: [], categories: [candy]),
+      thursday: MyDaySnapshot(
+        day: thursday, week: WeekID(containing: thursday)!, goals: [],
+        todayCheckoffs: [], weekCheckoffs: [], categories: [candy]),
+    ])
+    let model = MyDayModel(
+      repository: repository, date: DateProvider { dates.withLock { $0 } },
+      timeZone: CurrentTimeZoneProvider { self.utc })
+    await model.loadInitial()
+    let staleRow = try #require(readyPresentation(model.state).indulgences.first)
+
+    dates.withLock { $0 = self.instant(for: thursday) }
+    await model.addIndulgence(staleRow)
+
+    #expect(try readyPresentation(model.state).day == thursday)
+    #expect(await repository.indulgenceMutations.isEmpty)
+  }
+
+  @Test
+  func returnedNewDayAndBoundaryRefreshReplaceOptimisticIndulgenceCount() async throws {
+    let thursday = wednesday.addingDays(1)!
+    let candy = indulgenceCategory(name: "Candy", symbol: "birthday.cake", order: 0)
+    let instant = ISO8601DateFormatter().date(from: "2026-10-29T00:30:00Z")!
+    let newYork = TimeZone(identifier: "America/New_York")!
+    let zones = Mutex(newYork)
+    let repository = ToggleDailyTrackingRepository(
+      snapshots: [
+        wednesday: MyDaySnapshot(
+          day: wednesday, week: WeekID(containing: wednesday)!, goals: [],
+          todayCheckoffs: [], weekCheckoffs: [], categories: [candy]),
+        thursday: MyDaySnapshot(
+          day: thursday, week: WeekID(containing: thursday)!, goals: [],
+          todayCheckoffs: [], weekCheckoffs: [], categories: [candy]),
+      ], indulgenceDelay: .milliseconds(100), returnedIndulgenceDay: thursday)
+    let model = MyDayModel(
+      repository: repository, date: DateProvider { instant },
+      timeZone: CurrentTimeZoneProvider { zones.withLock { $0 } })
+    await model.loadInitial()
+    let row = try #require(readyPresentation(model.state).indulgences.first)
+
+    let mutation = Task { await model.addIndulgence(row) }
+    await Task.yield()
+    zones.withLock { $0 = self.utc }
+    await model.refreshFromBoundaryEvent()
+    await mutation.value
+
+    #expect(try readyPresentation(model.state).day == thursday)
+    #expect(try readyPresentation(model.state).indulgences.first?.count == 0)
+    #expect(await repository.readCount == 2)
+  }
+
+  @Test
+  func failedAndNilIndulgenceRemovalRestoreCountAndKeepGuidance() async throws {
+    let candy = indulgenceCategory(name: "Candy", symbol: "birthday.cake", order: 0)
+    let snapshot = MyDaySnapshot(
+      day: wednesday, week: WeekID(containing: wednesday)!, goals: [], todayCheckoffs: [],
+      weekCheckoffs: [], categories: [candy], todayOccurrences: [occurrence(categoryID: candy.id)])
+    for repository in [
+      ToggleDailyTrackingRepository(snapshot: snapshot, failsIndulgence: true),
+      ToggleDailyTrackingRepository(snapshot: snapshot, returnsNilRemoval: true),
+    ] {
+      let model = makeModel(repository: repository)
+      await model.loadInitial()
+      await model.removeIndulgence(
+        try #require(readyPresentation(model.state).indulgences.first))
+
+      #expect(try readyPresentation(model.state).indulgences.first?.count == 1)
+      #expect(model.successfulMutationCount == 0)
+      #expect(model.indulgenceMutationMessage == "Couldn’t update this count. Please try again.")
+    }
+  }
+
   private func makeModel(repository: any DailyTrackingRepository) -> MyDayModel {
     let now = instant(for: wednesday)
     let zone = utc
@@ -380,6 +513,22 @@ struct MyDayModelTests {
       utcOffsetSeconds: 0,
       createdAt: instant,
       updatedAt: instant)
+  }
+
+  private func indulgenceCategory(
+    name: String, symbol: String, order: Int
+  ) -> IndulgenceCategorySnapshot {
+    IndulgenceCategorySnapshot(
+      id: UUID(), name: name, symbolName: symbol, sortOrder: order,
+      isBuiltIn: true, isActive: true)
+  }
+
+  private func occurrence(categoryID: UUID) -> IndulgenceOccurrenceSnapshot {
+    let instant = instant(for: wednesday)
+    return IndulgenceOccurrenceSnapshot(
+      id: UUID(), categoryID: categoryID, instant: instant, localDay: wednesday,
+      timeZoneIdentifier: utc.identifier, utcOffsetSeconds: 0,
+      createdAt: instant, updatedAt: instant)
   }
 
   private func instant(for day: LocalDay) -> Date {
@@ -465,31 +614,57 @@ private enum ToggleMutation: Equatable, Sendable {
   case remove(UUID, LocalDay)
 }
 
+private enum IndulgenceMutation: Equatable, Sendable {
+  case add(UUID)
+  case remove(UUID, LocalDay)
+}
+
 private actor ToggleDailyTrackingRepository: DailyTrackingRepository {
   let snapshots: [LocalDay: MyDaySnapshot]
   let failsMutation: Bool
   let mutationDelay: Duration?
+  let failsIndulgence: Bool
+  let indulgenceDelay: Duration?
+  let returnedIndulgenceDay: LocalDay?
+  let returnsNilRemoval: Bool
   private(set) var mutations: [ToggleMutation] = []
+  private(set) var indulgenceMutations: [IndulgenceMutation] = []
   private(set) var readCount = 0
 
   init(
     snapshot: MyDaySnapshot,
     failsMutation: Bool = false,
-    mutationDelay: Duration? = nil
+    failsIndulgence: Bool = false,
+    mutationDelay: Duration? = nil,
+    indulgenceDelay: Duration? = nil,
+    returnedIndulgenceDay: LocalDay? = nil,
+    returnsNilRemoval: Bool = false
   ) {
     self.snapshots = [snapshot.day: snapshot]
     self.failsMutation = failsMutation
+    self.failsIndulgence = failsIndulgence
     self.mutationDelay = mutationDelay
+    self.indulgenceDelay = indulgenceDelay
+    self.returnedIndulgenceDay = returnedIndulgenceDay
+    self.returnsNilRemoval = returnsNilRemoval
   }
 
   init(
     snapshots: [LocalDay: MyDaySnapshot],
     failsMutation: Bool = false,
-    mutationDelay: Duration? = nil
+    failsIndulgence: Bool = false,
+    mutationDelay: Duration? = nil,
+    indulgenceDelay: Duration? = nil,
+    returnedIndulgenceDay: LocalDay? = nil,
+    returnsNilRemoval: Bool = false
   ) {
     self.snapshots = snapshots
     self.failsMutation = failsMutation
+    self.failsIndulgence = failsIndulgence
     self.mutationDelay = mutationDelay
+    self.indulgenceDelay = indulgenceDelay
+    self.returnedIndulgenceDay = returnedIndulgenceDay
+    self.returnsNilRemoval = returnsNilRemoval
   }
 
   func myDaySnapshot(for day: LocalDay) throws -> MyDaySnapshot {
@@ -518,12 +693,28 @@ private actor ToggleDailyTrackingRepository: DailyTrackingRepository {
     return nil
   }
 
-  func recordIndulgence(categoryID: UUID) throws -> IndulgenceOccurrenceSnapshot {
-    throw MyDayTestError.expected
+  func recordIndulgence(categoryID: UUID) async throws -> IndulgenceOccurrenceSnapshot {
+    if let indulgenceDelay { try await Task.sleep(for: indulgenceDelay) }
+    indulgenceMutations.append(.add(categoryID))
+    if failsIndulgence { throw MyDayTestError.expected }
+    let now = Date(timeIntervalSince1970: 0)
+    return IndulgenceOccurrenceSnapshot(
+      id: UUID(), categoryID: categoryID, instant: now,
+      localDay: returnedIndulgenceDay ?? snapshots.keys.first!,
+      timeZoneIdentifier: "UTC", utcOffsetSeconds: 0, createdAt: now, updatedAt: now)
   }
-  func removeLatestIndulgence(categoryID: UUID, on day: LocalDay) throws
+  func removeLatestIndulgence(categoryID: UUID, on day: LocalDay) async throws
     -> IndulgenceOccurrenceSnapshot?
-  { throw MyDayTestError.expected }
+  {
+    if let indulgenceDelay { try await Task.sleep(for: indulgenceDelay) }
+    indulgenceMutations.append(.remove(categoryID, day))
+    if failsIndulgence { throw MyDayTestError.expected }
+    if returnsNilRemoval { return nil }
+    let now = Date(timeIntervalSince1970: 0)
+    return IndulgenceOccurrenceSnapshot(
+      id: UUID(), categoryID: categoryID, instant: now, localDay: day,
+      timeZoneIdentifier: "UTC", utcOffsetSeconds: 0, createdAt: now, updatedAt: now)
+  }
 }
 
 private enum MyDayTestError: Error {

@@ -81,6 +81,26 @@ nonisolated struct MyDaySnapshot: Hashable, Sendable {
   let goals: [PlannedGoalSnapshot]
   let todayCheckoffs: [GoalCheckoffSnapshot]
   let weekCheckoffs: [GoalCheckoffSnapshot]
+  let categories: [IndulgenceCategorySnapshot]
+  let todayOccurrences: [IndulgenceOccurrenceSnapshot]
+
+  init(
+    day: LocalDay,
+    week: WeekID,
+    goals: [PlannedGoalSnapshot],
+    todayCheckoffs: [GoalCheckoffSnapshot],
+    weekCheckoffs: [GoalCheckoffSnapshot],
+    categories: [IndulgenceCategorySnapshot] = [],
+    todayOccurrences: [IndulgenceOccurrenceSnapshot] = []
+  ) {
+    self.day = day
+    self.week = week
+    self.goals = goals
+    self.todayCheckoffs = todayCheckoffs
+    self.weekCheckoffs = weekCheckoffs
+    self.categories = categories
+    self.todayOccurrences = todayOccurrences
+  }
 }
 
 nonisolated struct WeekActivitySnapshot: Hashable, Sendable {
@@ -103,6 +123,7 @@ nonisolated enum RepositoryError: Error, Equatable, Sendable {
   case inactiveGoal
   case duplicateCheckoff
   case targetAlreadyMet
+  case staleDay
   case identifierCollision
   case corruptedData
   case persistenceFailure

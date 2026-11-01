@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import Testing
+import UIKit
 
 @testable import Cadence
 
@@ -214,7 +215,7 @@ struct PersistenceSchemaTests {
       id: first.id,
       name: first.name,
       normalizedName: first.normalizedName,
-      symbolName: first.symbolName,
+      symbolName: "circle",
       sortOrder: first.sortOrder,
       isBuiltIn: true,
       isActive: false,
@@ -242,11 +243,15 @@ struct PersistenceSchemaTests {
           "10000000-0000-0000-0000-000000000005",
         ])
     #expect(saved.map(\.name) == ["Junk Food", "Unhealthy Snacks", "Candy", "Alcohol", "Desserts"])
-    #expect(saved.map(\.symbolName) == Array(repeating: "circle", count: 5))
+    #expect(
+      saved.map(\.symbolName)
+        == [
+          "takeoutbag.and.cup.and.straw", "popcorn", "birthday.cake", "wineglass", "fork.knife",
+        ])
     let allAreBuiltIn = saved.allSatisfy(\.isBuiltIn)
     #expect(allAreBuiltIn)
     #expect(saved.first?.isActive == false)
-    #expect(saved.first?.updatedAt == now.addingTimeInterval(-100))
+    #expect(saved.first?.updatedAt == now)
   }
 
   @Test
@@ -266,6 +271,63 @@ struct PersistenceSchemaTests {
     #expect(!context.hasChanges)
     let saved = try context.fetch(FetchDescriptor<IndulgenceCategoryRecord>())
     #expect(saved.isEmpty)
+  }
+
+  @Test
+  func failedSymbolReconciliationRollsBackExistingBuiltIn() throws {
+    struct ExpectedFailure: Error {}
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let context = ModelContext(container)
+    let builtIn = BuiltInIndulgenceCategories.all[0]
+    let originalDate = Date(timeIntervalSince1970: 100)
+    context.insert(
+      IndulgenceCategoryRecord(
+        id: builtIn.id, name: builtIn.name, normalizedName: builtIn.normalizedName,
+        symbolName: "circle", sortOrder: builtIn.sortOrder, isBuiltIn: true, isActive: false,
+        createdAt: originalDate, updatedAt: originalDate))
+    try context.save()
+
+    #expect(throws: ExpectedFailure.self) {
+      try BuiltInIndulgenceCategories.seed(
+        in: context,
+        now: originalDate.addingTimeInterval(100),
+        save: { _ in throw ExpectedFailure() })
+    }
+
+    let saved = try #require(
+      try context.fetch(FetchDescriptor<IndulgenceCategoryRecord>()).first)
+    #expect(saved.symbolName == "circle")
+    #expect(saved.updatedAt == originalDate)
+    #expect(saved.isActive == false)
+  }
+
+  @Test
+  func duplicateBuiltInIdentityFailsSafely() throws {
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let context = ModelContext(container)
+    let builtIn = BuiltInIndulgenceCategories.all[0]
+    for suffix in 0...1 {
+      context.insert(
+        IndulgenceCategoryRecord(
+          id: builtIn.id, name: "Duplicate \(suffix)", normalizedName: "duplicate",
+          symbolName: "circle", sortOrder: suffix, isBuiltIn: true, isActive: true,
+          createdAt: .distantPast, updatedAt: .distantPast))
+    }
+    try context.save()
+
+    #expect(throws: RepositoryError.corruptedData) {
+      try BuiltInIndulgenceCategories.seed(in: context, now: .now)
+    }
+    #expect(!context.hasChanges)
+    #expect(try context.fetch(FetchDescriptor<IndulgenceCategoryRecord>()).count == 2)
+  }
+
+  @Test
+  func approvedBuiltInSymbolsResolveOnTheSupportedPlatform() {
+    for category in BuiltInIndulgenceCategories.all {
+      #expect(
+        UIImage(systemName: category.symbolName) != nil, "Missing symbol: \(category.symbolName)")
+    }
   }
 }
 

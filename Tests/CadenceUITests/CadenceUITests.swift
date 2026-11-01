@@ -51,6 +51,16 @@ final class CadenceUITests: XCTestCase {
     waitForReadyState(in: app)
     XCTAssertTrue(app.staticTexts["No Goals planned yet"].exists)
     XCTAssertTrue(app.staticTexts["iIndulged"].exists)
+    for category in ["Junk Food", "Unhealthy Snacks", "Candy", "Alcohol", "Desserts"] {
+      XCTAssertTrue(app.buttons["Add \(category) occurrence"].exists)
+      XCTAssertTrue(app.buttons["Remove \(category) occurrence"].exists)
+    }
+    let addCandy = app.buttons["Add Candy occurrence"]
+    let removeCandy = app.buttons["Remove Candy occurrence"]
+    addCandy.tap()
+    XCTAssertTrue(app.staticTexts["1 today"].waitForExistence(timeout: 5))
+    removeCandy.tap()
+    XCTAssertFalse(removeCandy.isEnabled)
     app.buttons["Go to My Goals"].tap()
     XCTAssertTrue(app.staticTexts["my-goals-screen"].waitForExistence(timeout: 5))
     XCTAssertTrue(primaryDestination("My Goals", in: app).isSelected)
@@ -118,6 +128,40 @@ final class CadenceUITests: XCTestCase {
   }
 
   @MainActor
+  func testIIndulgedCountersAddRemoveAndRespectZeroFloor() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-populated"]
+    app.launch()
+    waitForReadyState(in: app)
+
+    XCTAssertTrue(app.staticTexts["2 today"].exists)
+    let addCandy = app.buttons["Add Candy occurrence"]
+    let removeCandy = app.buttons["Remove Candy occurrence"]
+    addCandy.tap()
+    XCTAssertTrue(app.staticTexts["3 today"].waitForExistence(timeout: 5))
+    removeCandy.tap()
+    XCTAssertTrue(app.staticTexts["2 today"].waitForExistence(timeout: 5))
+
+    let removeJunkFood = app.buttons["Remove Junk Food occurrence"]
+    XCTAssertFalse(removeJunkFood.isEnabled)
+  }
+
+  @MainActor
+  func testIIndulgedMutationFailureRestoresCountAndShowsGuidance() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-mutation-failure"]
+    app.launch()
+    waitForReadyState(in: app)
+
+    app.buttons["Add Junk Food occurrence"].tap()
+
+    XCTAssertTrue(
+      app.staticTexts["Couldn’t update this count. Please try again."].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["0 today"].exists)
+    XCTAssertTrue(app.staticTexts["Goals"].exists)
+  }
+
+  @MainActor
   func testMyDayReadFailureKeepsStructureAndOffersRetry() throws {
     let app = XCUIApplication()
     app.launchArguments = ["--ui-test-my-day-read-failure"]
@@ -125,7 +169,7 @@ final class CadenceUITests: XCTestCase {
 
     waitForReadyState(in: app)
     XCTAssertTrue(app.staticTexts["Goals"].exists)
-    XCTAssertTrue(app.staticTexts["Your Goals couldn’t be refreshed"].exists)
+    XCTAssertTrue(app.staticTexts["Your day couldn’t be refreshed"].exists)
     XCTAssertTrue(app.buttons["Try Again"].exists)
     XCTAssertTrue(app.staticTexts["iIndulged"].exists)
     XCTAssertFalse(
