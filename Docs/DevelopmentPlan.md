@@ -43,11 +43,10 @@
 
 - **F-003A My Day presentation:** Complete. Added repository-backed screen states, Today/This Week grouping, capped progress, stable ordering, empty-plan routing, recoverable failure, and day/time-zone refresh.
 - **F-003B Goal checkoffs:** Complete. Added one-tap completion and undo with persistence, rollback, relaunch, concurrency guards, and accessible feedback.
-- Validate F-003C's implemented five built-in iIndulged counters with timestamped plus/minus behavior, reconciled symbols, rollback, and accessible feedback.
-- Close the F-003 umbrella through integration review, the manual accessibility matrix, full-gate evidence, and documentation reconciliation.
-- Build Sunday Planning in My Goals for the upcoming Monday-through-Sunday week.
-- Support Daily, Weekly, and Custom 2–6-times-per-week frequencies.
-- Carry Goals forward and preserve History across midweek changes.
+- **F-003 My Day:** Complete. Presentation, Goal checkoffs, and iIndulged quick logging passed independent review, local and hosted full gates, and manual validation.
+- Build F-004A weekly plan lifecycle with Sunday Planning, automatic carry-forward, and boundary-safe screen states.
+- Build F-004B focused Goal creation/editing with Daily, Weekly, Custom 2–6, duplicate validation, and the 60-character name limit.
+- Build F-004C persisted ordering, gentle guidance beginning at 8 Goals, and history-preserving removal.
 
 ### 3. iIndulged expansion
 

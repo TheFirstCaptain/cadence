@@ -29,11 +29,12 @@ These are product-level scenarios. Feature records should add narrower validatio
 6. Given an active weekly plan, when the user adds or changes a Goal, then the change applies immediately without prorating its target and existing checkoffs count toward the updated frequency.
 7. Given a Goal with earlier checkoffs, when the user removes it midweek, then it leaves remaining My Day views while earlier checkoffs remain in History.
 8. Given a Goal name that matches another after trimming and case-insensitive comparison, when the user tries to save it in the same plan, then the duplicate is prevented with clear, nonjudgmental guidance.
-9. My Goals encourages a manageable list without enforcing a hard Goal limit.
+9. Beginning at 8 Goals, My Goals shows gentle manageable-list guidance without enforcing a hard Goal limit.
 10. Add and edit use a focused sheet with name and frequency controls; Custom offers 2 through 6.
 11. Goal names are trimmed and compared case-insensitively for duplicates.
 12. New Goals appear at the bottom and manual reordering persists into My Day.
 13. Removing a Goal explains that prior History remains and requires confirmation.
+14. Goal names are limited to 60 characters and the editor shows a character count near the limit.
 
 ## Daily checkoffs
 

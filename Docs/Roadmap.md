@@ -32,6 +32,8 @@ My Day is delivered as three focused slices: F-003A establishes repository-backe
 - Create and manage custom indulgence types.
 - Review, correct, or remove recent entries.
 
+My Goals is delivered as three focused slices: F-004A establishes weekly plan selection, Sunday Planning, carry-forward, and screen states; F-004B adds focused Goal creation and editing; F-004C adds ordering, manageable-list guidance, and history-preserving removal.
+
 ## Phase 3: History
 
 - Open to the current week and browse prior Week and calendar Month views.

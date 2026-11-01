@@ -25,7 +25,8 @@ Cadence is a lightweight personal wellness app that helps people find a sustaina
 - Prevent Goal names that match after trimming and case-insensitive comparison within the same weekly plan.
 - Add and edit Goals in a focused sheet; compare trimmed Goal names case-insensitively for duplicates.
 - Allow manual Goal ordering and preserve that order within My Day's Today and This Week groups.
-- Encourage a manageable set of Goals without imposing a hard limit.
+- Show gentle manageable-list guidance beginning at 8 Goals without imposing a hard limit.
+- Limit Goal names to 60 characters and show a character count near the limit.
 - Keep plans flexible so a missed day never feels like failure.
 
 ### Daily checkoffs
