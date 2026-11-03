@@ -142,6 +142,10 @@ struct CadenceStoreTests {
     )
     let wednesday = LocalDay(year: 2026, month: 10, day: 28)!
     _ = try await store.recordCheckoff(goalID: goal.id, on: wednesday)
+    await expectError(.inactiveGoal) {
+      _ = try await store.removeGoal(
+        id: goal.id, effectiveOn: LocalDay(year: 2026, month: 10, day: 29)!)
+    }
     let removed = try await store.removeGoal(id: goal.id, effectiveOn: wednesday)
 
     #expect(removed.activeThrough == wednesday)
@@ -156,6 +160,16 @@ struct CadenceStoreTests {
     let history = try await store.dayHistory(for: wednesday)
     #expect(history.goals.map(\.id) == [goal.id])
     #expect(history.checkoffs.count == 1)
+    await expectError(.inactiveGoal) {
+      _ = try await store.removeGoal(id: goal.id, effectiveOn: wednesday)
+    }
+    await expectError(.inactiveGoal) {
+      _ = try await store.updateGoal(
+        id: goal.id,
+        configuration: GoalConfiguration(name: "Changed", frequency: .weekly))
+    }
+    #expect(try await store.dayHistory(for: wednesday).goals.first?.activeThrough == wednesday)
+    #expect(try await store.dayHistory(for: wednesday).goals.first?.name == "Stretch")
   }
 
   @Test

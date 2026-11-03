@@ -126,6 +126,108 @@ final class CadenceUITests: XCTestCase {
   }
 
   @MainActor
+  func testMyGoalsShowsManageableGuidanceWithoutBlockingAdditions() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-goals-many"]
+    app.launch()
+    waitForReadyState(in: app)
+    primaryDestination("My Goals", in: app).tap()
+
+    XCTAssertTrue(element("my-goals-manageable-guidance", in: app).waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Add Goal"].isEnabled)
+  }
+
+  @MainActor
+  func testMyGoalsRemovalExplainsHistoryAndCanCancelOrConfirm() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-populated"]
+    app.launch()
+    waitForReadyState(in: app)
+    primaryDestination("My Goals", in: app).tap()
+
+    app.buttons["Edit Swim"].tap()
+    app.buttons["Remove Goal"].tap()
+    XCTAssertTrue(
+      app.staticTexts.matching(
+        NSPredicate(format: "label CONTAINS %@", "Earlier checkoffs will remain in History")
+      ).firstMatch.waitForExistence(timeout: 5))
+    app.buttons["Cancel"].tap()
+    XCTAssertTrue(app.navigationBars["Edit Goal"].exists)
+
+    app.buttons["Remove Goal"].tap()
+    app.buttons.matching(identifier: "Remove Goal").element(boundBy: 1).tap()
+    XCTAssertTrue(app.buttons["Edit Walk"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["Edit Swim"].exists)
+    primaryDestination("My Day", in: app).tap()
+    XCTAssertFalse(app.staticTexts["Swim"].exists)
+  }
+
+  @MainActor
+  func testMyGoalsFailedReorderRollsBackThenRetriesAndRefreshesMyDay() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-goals-reorder-failure"]
+    app.launch()
+    waitForReadyState(in: app)
+    primaryDestination("My Goals", in: app).tap()
+
+    app.buttons["Reorder Read"].tap()
+    app.buttons["Move Read earlier"].tap()
+    XCTAssertTrue(
+      app.staticTexts["Couldn’t reorder these Goals. Please try again."]
+        .waitForExistence(timeout: 5))
+    XCTAssertGreaterThan(app.staticTexts["Read"].frame.minY, app.staticTexts["Walk"].frame.minY)
+
+    app.buttons["Reorder Read"].tap()
+    app.buttons["Move Read earlier"].tap()
+    XCTAssertLessThan(app.staticTexts["Read"].frame.minY, app.staticTexts["Walk"].frame.minY)
+    app.buttons["Reorder Read"].tap()
+    app.buttons["Move Read earlier"].tap()
+    primaryDestination("My Day", in: app).tap()
+    XCTAssertLessThan(app.staticTexts["Read"].frame.minY, app.staticTexts["Swim"].frame.minY)
+  }
+
+  @MainActor
+  func testMyGoalsReorderDisablesUnavailableDirections() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-populated"]
+    app.launch()
+    waitForReadyState(in: app)
+    primaryDestination("My Goals", in: app).tap()
+
+    app.buttons["Reorder Swim"].tap()
+    XCTAssertFalse(app.buttons["Move Swim earlier"].isEnabled)
+
+    app.terminate()
+    app.launch()
+    waitForReadyState(in: app)
+    primaryDestination("My Goals", in: app).tap()
+    app.buttons["Reorder Read"].tap()
+    XCTAssertFalse(app.buttons["Move Read later"].isEnabled)
+  }
+
+  @MainActor
+  func testMyGoalsFailedRemovalKeepsEditorAndRetries() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-goals-removal-failure"]
+    app.launch()
+    waitForReadyState(in: app)
+    primaryDestination("My Goals", in: app).tap()
+
+    app.buttons["Edit Swim"].tap()
+    app.buttons["Remove Goal"].tap()
+    app.buttons.matching(identifier: "Remove Goal").element(boundBy: 1).tap()
+    XCTAssertTrue(
+      app.staticTexts["Couldn’t remove this Goal. Please try again."]
+        .waitForExistence(timeout: 5))
+    XCTAssertTrue(app.navigationBars["Edit Goal"].exists)
+
+    app.buttons["Remove Goal"].tap()
+    app.buttons.matching(identifier: "Remove Goal").element(boundBy: 1).tap()
+    XCTAssertTrue(app.buttons["Edit Walk"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["Edit Swim"].exists)
+  }
+
+  @MainActor
   func testMyGoalsReadFailureOffersCalmRetry() throws {
     let app = XCUIApplication()
     app.launchArguments = ["--ui-test-my-goals-read-failure"]

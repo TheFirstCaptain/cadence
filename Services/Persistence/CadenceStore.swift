@@ -159,6 +159,7 @@ actor CadenceStore:
     let operation = operationContext()
     return try transaction {
       let goal = try requireGoal(id)
+      guard goal.activeThroughKey == nil else { throw RepositoryError.inactiveGoal }
       let week = try weekForGoal(goal)
       try validateEditable(week: week, operation: operation)
       let siblings = try goalRecords(forPlanID: goal.weeklyPlanID)
@@ -179,6 +180,7 @@ actor CadenceStore:
     let operation = operationContext()
     return try transaction {
       let goal = try requireGoal(id)
+      guard goal.activeThroughKey == nil else { throw RepositoryError.inactiveGoal }
       let week = try weekForGoal(goal)
       try validateEditable(week: week, operation: operation)
       let activeFrom = try localDay(
@@ -194,7 +196,7 @@ actor CadenceStore:
         modelContext.delete(goal)
         return snapshot
       }
-      guard WeekID(containing: day) == week, day >= activeFrom else {
+      guard day == operation.day, WeekID(containing: day) == week, day >= activeFrom else {
         throw RepositoryError.inactiveGoal
       }
       goal.activeThroughYear = day.year

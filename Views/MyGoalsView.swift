@@ -72,6 +72,16 @@ nonisolated struct MyGoalsPresentation: Hashable, Sendable {
     return MyGoalsPresentation(identity: identity, rows: updated)
   }
 
+  func reordered(_ rows: [MyGoalsRow]) -> MyGoalsPresentation {
+    MyGoalsPresentation(identity: identity, rows: rows)
+  }
+
+  func removing(id: UUID) -> MyGoalsPresentation {
+    MyGoalsPresentation(identity: identity, rows: rows.filter { $0.id != id })
+  }
+
+  var showsManageableListGuidance: Bool { rows.count >= 8 }
+
   private init(identity: MyGoalsIdentity, rows: [MyGoalsRow]) {
     self.identity = identity
     self.rows = rows
@@ -95,6 +105,11 @@ final class MyGoalsModel: ObservableObject {
     case planningWeekChanged
     case failed
   }
+  enum MutationResult: Equatable {
+    case saved
+    case planningWeekChanged
+    case failed
+  }
   enum State: Equatable {
     case loading
     case ready(MyGoalsPresentation)
@@ -102,7 +117,7 @@ final class MyGoalsModel: ObservableObject {
   }
 
   @Published private(set) var state: State = .loading
-  @Published private(set) var isSaving = false
+  @Published private(set) var isMutating = false
   @Published private(set) var guidanceMessage: String?
 
   private let repository: any PlanningRepository
@@ -133,7 +148,7 @@ final class MyGoalsModel: ObservableObject {
   }
 
   func refreshFromForeground() async {
-    if isSaving {
+    if isMutating {
       refreshPending = true
       return
     }
@@ -141,7 +156,7 @@ final class MyGoalsModel: ObservableObject {
   }
 
   func refreshFromBoundaryEvent() async {
-    if isSaving {
+    if isMutating {
       refreshPending = true
       return
     }
@@ -153,7 +168,7 @@ final class MyGoalsModel: ObservableObject {
   func saveGoal(
     id: UUID?, configuration: GoalConfiguration, presentedIdentity: MyGoalsIdentity
   ) async -> SaveResult {
-    guard !isSaving, case .ready(let presentation) = state else { return .failed }
+    guard !isMutating, case .ready(let presentation) = state else { return .failed }
     guard presentation.identity == presentedIdentity, currentIdentity() == presentedIdentity else {
       guidanceMessage = "Your planning week changed. Please review this plan and try again."
       await load(showLoading: false)
@@ -161,10 +176,10 @@ final class MyGoalsModel: ObservableObject {
     }
 
     guidanceMessage = nil
-    isSaving = true
+    isMutating = true
     generation += 1
     let mutationGeneration = generation
-    defer { isSaving = false }
+    defer { isMutating = false }
     do {
       let goal =
         if let id {
@@ -190,6 +205,87 @@ final class MyGoalsModel: ObservableObject {
       return .tooLong
     } catch RepositoryError.immutablePlan {
       guidanceMessage = "Your planning week changed. Please review this plan and try again."
+      refreshPending = false
+      await load(showLoading: false)
+      return .planningWeekChanged
+    } catch {
+      await drainPendingRefresh()
+      return .failed
+    }
+  }
+
+  func reorderGoals(
+    orderedRows: [MyGoalsRow], presentedIdentity: MyGoalsIdentity
+  ) async -> MutationResult {
+    guard !isMutating, case .ready(let presentation) = state else { return .failed }
+    guard presentation.identity == presentedIdentity, currentIdentity() == presentedIdentity else {
+      guidanceMessage = "Your planning week changed. Please review this plan and try again."
+      await load(showLoading: false)
+      return .planningWeekChanged
+    }
+    guard Set(orderedRows.map(\.id)) == Set(presentation.rows.map(\.id)),
+      orderedRows.count == presentation.rows.count
+    else { return .failed }
+
+    guidanceMessage = nil
+    let previous = presentation
+    state = .ready(presentation.reordered(orderedRows))
+    isMutating = true
+    generation += 1
+    let mutationGeneration = generation
+    defer { isMutating = false }
+    do {
+      let plan = try await repository.reorderGoals(
+        in: presentedIdentity.targetWeek, orderedIDs: orderedRows.map(\.id))
+      onPlanChanged()
+      guard mutationGeneration == generation, currentIdentity() == presentedIdentity else {
+        refreshPending = false
+        await load(showLoading: false)
+        return .saved
+      }
+      state = .ready(MyGoalsPresentation(identity: presentedIdentity, plan: plan))
+      await drainPendingRefresh()
+      return .saved
+    } catch RepositoryError.immutablePlan {
+      guidanceMessage = "Your planning week changed. Please review this plan and try again."
+      refreshPending = false
+      await load(showLoading: false)
+      return .planningWeekChanged
+    } catch {
+      state = .ready(previous)
+      guidanceMessage = "Couldn’t reorder these Goals. Please try again."
+      await drainPendingRefresh()
+      return .failed
+    }
+  }
+
+  func removeGoal(id: UUID, presentedIdentity: MyGoalsIdentity) async -> MutationResult {
+    guard !isMutating, case .ready(let presentation) = state else { return .failed }
+    guard presentation.identity == presentedIdentity, currentIdentity() == presentedIdentity else {
+      guidanceMessage = "Your planning week changed. Please review this plan and try again."
+      await load(showLoading: false)
+      return .planningWeekChanged
+    }
+
+    guidanceMessage = nil
+    isMutating = true
+    generation += 1
+    let mutationGeneration = generation
+    defer { isMutating = false }
+    do {
+      _ = try await repository.removeGoal(id: id, effectiveOn: presentedIdentity.referenceDay)
+      onPlanChanged()
+      guard mutationGeneration == generation, currentIdentity() == presentedIdentity else {
+        refreshPending = false
+        await load(showLoading: false)
+        return .saved
+      }
+      state = .ready(presentation.removing(id: id))
+      await drainPendingRefresh()
+      return .saved
+    } catch RepositoryError.immutablePlan, RepositoryError.inactiveGoal {
+      guidanceMessage = "Your planning week changed. Please review this plan and try again."
+      refreshPending = false
       await load(showLoading: false)
       return .planningWeekChanged
     } catch {
@@ -268,9 +364,11 @@ struct MyGoalsView: View {
       .navigationTitle("My Goals")
       .toolbar {
         if case .ready(let presentation) = model.state {
+          if presentation.rows.count > 1 { EditButton().disabled(model.isMutating) }
           Button("Add Goal", systemImage: "plus") {
             editor = GoalEditorRoute(identity: presentation.identity, row: nil)
           }
+          .disabled(model.isMutating)
         }
       }
       .accessibilityIdentifier("my-goals-screen")
@@ -283,6 +381,10 @@ struct MyGoalsView: View {
           await model.saveGoal(
             id: route.row?.id, configuration: configuration,
             presentedIdentity: route.identity)
+        },
+        remove: {
+          guard let id = route.row?.id else { return .failed }
+          return await model.removeGoal(id: id, presentedIdentity: route.identity)
         })
     }
     .task {
@@ -300,14 +402,24 @@ struct MyGoalsView: View {
   @ViewBuilder
   private func readyContent(_ presentation: MyGoalsPresentation) -> some View {
     let range = weekRangeText(presentation.identity.targetWeek)
-    ScrollView {
-      VStack(alignment: .leading, spacing: 20) {
+    List {
+      Section {
         if let guidanceMessage = model.guidanceMessage {
           Text(guidanceMessage)
             .font(.callout)
             .foregroundStyle(.secondary)
             .accessibilityIdentifier("my-goals-guidance")
         }
+        if presentation.showsManageableListGuidance {
+          Text(
+            "A smaller plan may be easier to sustain. You can keep adding Goals if this week calls for it."
+          )
+          .font(.callout)
+          .foregroundStyle(.secondary)
+          .accessibilityIdentifier("my-goals-manageable-guidance")
+        }
+      }
+      Section {
         VStack(alignment: .leading, spacing: 4) {
           Text(presentation.identity.phase.title)
             .font(.title2.bold())
@@ -317,7 +429,8 @@ struct MyGoalsView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(presentation.identity.phase.title), \(range)")
         .accessibilityIdentifier("my-goals-week-context")
-
+      }
+      Section {
         if presentation.rows.isEmpty {
           ContentUnavailableView {
             Label(emptyTitle(for: presentation.identity.phase), systemImage: "target")
@@ -326,38 +439,68 @@ struct MyGoalsView: View {
           }
           .accessibilityIdentifier("my-goals-empty")
         } else {
-          VStack(spacing: 0) {
-            ForEach(presentation.rows) { row in
-              HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                  Text(row.name)
-                  Text(row.frequencyText)
-                    .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(row.name), \(row.frequencyText)")
-
-                Button("Edit \(row.name)", systemImage: "pencil") {
-                  editor = GoalEditorRoute(identity: presentation.identity, row: row)
-                }
-                .labelStyle(.iconOnly)
-                .accessibilityLabel("Edit \(row.name)")
+          ForEach(presentation.rows) { row in
+            HStack(spacing: 12) {
+              VStack(alignment: .leading, spacing: 4) {
+                Text(row.name)
+                Text(row.frequencyText)
+                  .foregroundStyle(.secondary)
               }
-              .padding(.vertical, 12)
-              .accessibilityIdentifier("my-goals-row-\(row.id.uuidString)")
-              if row.id != presentation.rows.last?.id { Divider() }
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .accessibilityElement(children: .combine)
+              .accessibilityLabel("\(row.name), \(row.frequencyText)")
+
+              Menu("Reorder \(row.name)", systemImage: "arrow.up.arrow.down") {
+                let index = presentation.rows.firstIndex(of: row) ?? 0
+                Button("Move \(row.name) earlier", systemImage: "arrow.up") {
+                  move(row: row, by: -1, in: presentation)
+                }
+                .disabled(index == presentation.rows.startIndex)
+                Button("Move \(row.name) later", systemImage: "arrow.down") {
+                  move(row: row, by: 1, in: presentation)
+                }
+                .disabled(index == presentation.rows.index(before: presentation.rows.endIndex))
+              }
+              .labelStyle(.iconOnly)
+              .accessibilityLabel("Reorder \(row.name)")
+
+              Button("Edit \(row.name)", systemImage: "pencil") {
+                editor = GoalEditorRoute(identity: presentation.identity, row: row)
+              }
+              .labelStyle(.iconOnly)
+              .accessibilityLabel("Edit \(row.name)")
+            }
+            .padding(.vertical, 8)
+            .accessibilityIdentifier("my-goals-row-\(row.id.uuidString)")
+          }
+          .onMove { offsets, destination in
+            var rows = presentation.rows
+            rows.move(fromOffsets: offsets, toOffset: destination)
+            Task {
+              _ = await model.reorderGoals(
+                orderedRows: rows, presentedIdentity: presentation.identity)
             }
           }
         }
       }
-      .padding()
     }
+    .disabled(model.isMutating)
   }
-
   private var readyRows: [MyGoalsRow] {
     guard case .ready(let presentation) = model.state else { return [] }
     return presentation.rows
+  }
+
+  private func move(row: MyGoalsRow, by offset: Int, in presentation: MyGoalsPresentation) {
+    guard let index = presentation.rows.firstIndex(of: row) else { return }
+    let destination = index + offset
+    guard presentation.rows.indices.contains(destination) else { return }
+    var rows = presentation.rows
+    rows.swapAt(index, destination)
+    Task {
+      _ = await model.reorderGoals(
+        orderedRows: rows, presentedIdentity: presentation.identity)
+    }
   }
 
   private func weekRangeText(_ week: WeekID) -> String {
@@ -397,20 +540,24 @@ private struct GoalEditorView: View {
   let route: GoalEditorRoute
   let existingRows: [MyGoalsRow]
   let save: (GoalConfiguration) async -> MyGoalsModel.SaveResult
+  let remove: () async -> MyGoalsModel.MutationResult
 
   @State private var name: String
   @State private var kind: GoalFrequency.Kind
   @State private var customTarget: Int
   @State private var isSaving = false
   @State private var message: String?
+  @State private var isConfirmingRemoval = false
 
   init(
     route: GoalEditorRoute, existingRows: [MyGoalsRow],
-    save: @escaping (GoalConfiguration) async -> MyGoalsModel.SaveResult
+    save: @escaping (GoalConfiguration) async -> MyGoalsModel.SaveResult,
+    remove: @escaping () async -> MyGoalsModel.MutationResult
   ) {
     self.route = route
     self.existingRows = existingRows
     self.save = save
+    self.remove = remove
     _name = State(initialValue: route.row?.name ?? "")
     _kind = State(initialValue: route.row?.frequency.kind ?? .daily)
     _customTarget = State(
@@ -455,6 +602,13 @@ private struct GoalEditorView: View {
         if let message {
           Section { Text(message).foregroundStyle(.secondary) }
         }
+
+        if route.row != nil {
+          Section {
+            Button("Remove Goal", role: .destructive) { isConfirmingRemoval = true }
+              .disabled(isSaving)
+          }
+        }
       }
       .navigationTitle(route.row == nil ? "Add Goal" : "Edit Goal")
       .navigationBarTitleDisplayMode(.inline)
@@ -468,6 +622,16 @@ private struct GoalEditorView: View {
         }
       }
       .onAppear { if route.row == nil { nameFocused = true } }
+      .confirmationDialog(
+        "Remove \(route.row?.name ?? "this Goal")?",
+        isPresented: $isConfirmingRemoval,
+        titleVisibility: .visible
+      ) {
+        Button("Remove Goal", role: .destructive) { Task { await submitRemoval() } }
+        Button("Cancel", role: .cancel) {}
+      } message: {
+        Text("This Goal will leave this weekly plan. Earlier checkoffs will remain in History.")
+      }
     }
   }
 
@@ -516,6 +680,18 @@ private struct GoalEditorView: View {
     case .tooLong: message = "Keep the name to 60 characters or fewer."
     case .planningWeekChanged: dismiss()
     case .failed: message = "Couldn’t save this Goal. Please try again."
+    }
+  }
+
+  private func submitRemoval() async {
+    isSaving = true
+    message = nil
+    let result = await remove()
+    isSaving = false
+    switch result {
+    case .saved: dismiss()
+    case .planningWeekChanged: dismiss()
+    case .failed: message = "Couldn’t remove this Goal. Please try again."
     }
   }
 }

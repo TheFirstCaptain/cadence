@@ -7,6 +7,9 @@ nonisolated enum UITestMyDayMode: Equatable, Sendable {
   case mutationFailure
   case myGoalsReadFailure
   case myGoalsMutationFailure
+  case manyGoals
+  case myGoalsReorderFailure
+  case myGoalsRemovalFailure
 }
 
 extension AppDependencies {
@@ -25,12 +28,19 @@ extension AppDependencies {
       switch mode {
       case .readFailure: FailingMyDayRepository(base: store, failsReads: true)
       case .mutationFailure: FailingMyDayRepository(base: store, failsReads: false)
-      case .empty, .populated, .myGoalsReadFailure, .myGoalsMutationFailure: store
+      case .empty, .populated, .myGoalsReadFailure, .myGoalsMutationFailure, .manyGoals,
+        .myGoalsReorderFailure, .myGoalsRemovalFailure:
+        store
       }
     let planning: any PlanningRepository =
       switch mode {
       case .myGoalsReadFailure: FailingPlanningRepository(base: store)
-      case .myGoalsMutationFailure: FailFirstMutationPlanningRepository(base: store)
+      case .myGoalsMutationFailure:
+        FailFirstMutationPlanningRepository(base: store, operation: .add)
+      case .myGoalsReorderFailure:
+        FailFirstMutationPlanningRepository(base: store, operation: .reorder)
+      case .myGoalsRemovalFailure:
+        FailFirstMutationPlanningRepository(base: store, operation: .remove)
       default: store
       }
     return AppDependencies(
@@ -45,10 +55,16 @@ extension AppDependencies {
 }
 
 private actor FailFirstMutationPlanningRepository: PlanningRepository {
+  enum Operation: Equatable, Sendable { case add, reorder, remove }
+
   let base: CadenceStore
+  let operation: Operation
   private var hasFailed = false
 
-  init(base: CadenceStore) { self.base = base }
+  init(base: CadenceStore, operation: Operation) {
+    self.base = base
+    self.operation = operation
+  }
 
   func plan(for week: WeekID) async throws -> WeeklyPlanSnapshot? {
     try await base.plan(for: week)
@@ -65,7 +81,7 @@ private actor FailFirstMutationPlanningRepository: PlanningRepository {
   func addGoal(to week: WeekID, configuration: GoalConfiguration) async throws
     -> PlannedGoalSnapshot
   {
-    if !hasFailed {
+    if operation == .add, !hasFailed {
       hasFailed = true
       throw RepositoryError.persistenceFailure
     }
@@ -77,11 +93,19 @@ private actor FailFirstMutationPlanningRepository: PlanningRepository {
   }
 
   func removeGoal(id: UUID, effectiveOn day: LocalDay) async throws -> PlannedGoalSnapshot {
-    try await base.removeGoal(id: id, effectiveOn: day)
+    if operation == .remove, !hasFailed {
+      hasFailed = true
+      throw RepositoryError.persistenceFailure
+    }
+    return try await base.removeGoal(id: id, effectiveOn: day)
   }
 
   func reorderGoals(in week: WeekID, orderedIDs: [UUID]) async throws -> WeeklyPlanSnapshot {
-    try await base.reorderGoals(in: week, orderedIDs: orderedIDs)
+    if operation == .reorder, !hasFailed {
+      hasFailed = true
+      throw RepositoryError.persistenceFailure
+    }
+    return try await base.reorderGoals(in: week, orderedIDs: orderedIDs)
   }
 
   func carryForward(from source: WeekID, to target: WeekID) async throws -> WeeklyPlanSnapshot {
@@ -104,12 +128,25 @@ private actor UITestMyDayPreparer: ApplicationPreparing {
 
   func prepare() async throws {
     try await store.prepare()
-    guard mode == .populated || mode == .mutationFailure else { return }
+    guard
+      [
+        UITestMyDayMode.populated, .mutationFailure, .manyGoals, .myGoalsReorderFailure,
+        .myGoalsRemovalFailure,
+      ].contains(mode)
+    else { return }
     let calendar = GregorianCalendarService(timeZone: timeZone)
     let day = calendar.localDay(containing: instant)
     let week = calendar.week(containing: instant)
     guard try await store.plan(for: week) == nil else { return }
     _ = try await store.ensurePlan(for: week)
+    if mode == .manyGoals {
+      for index in 1...8 {
+        _ = try await store.addGoal(
+          to: week,
+          configuration: GoalConfiguration(name: "Goal \(index)", frequency: .daily))
+      }
+      return
+    }
     let custom = try await store.addGoal(
       to: week,
       configuration: GoalConfiguration(name: "Read", frequency: .custom(daysPerWeek: 3)!))
