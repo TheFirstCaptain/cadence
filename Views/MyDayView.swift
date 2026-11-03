@@ -175,6 +175,14 @@ final class MyDayModel: ObservableObject {
     await load(showLoading: false)
   }
 
+  func refreshAfterPlanningChange() async {
+    if isMutating {
+      refreshPending = true
+      return
+    }
+    await load(showLoading: false)
+  }
+
   func toggle(_ row: MyDayGoalRow) async {
     guard !isMutating, row.canToggle,
       case .ready(let presentation) = state
@@ -312,17 +320,20 @@ struct MyDayView: View {
 
   private let onOpenGoals: () -> Void
   private let refreshEvents: LocalCalendarRefreshEvents
+  private let planningRevision: Int
 
   init(
     repository: any DailyTrackingRepository,
     date: DateProvider,
     timeZone: CurrentTimeZoneProvider,
     refreshEvents: LocalCalendarRefreshEvents = .live,
+    planningRevision: Int = 0,
     onOpenGoals: @escaping () -> Void
   ) {
     _model = StateObject(
       wrappedValue: MyDayModel(repository: repository, date: date, timeZone: timeZone))
     self.refreshEvents = refreshEvents
+    self.planningRevision = planningRevision
     self.onOpenGoals = onOpenGoals
   }
 
@@ -347,6 +358,9 @@ struct MyDayView: View {
     .onChange(of: scenePhase) { _, phase in
       guard phase == .active else { return }
       Task { await model.refreshFromForeground() }
+    }
+    .onChange(of: planningRevision) { _, _ in
+      Task { await model.refreshAfterPlanningChange() }
     }
     .sensoryFeedback(.selection, trigger: model.successfulMutationCount)
     .onChange(of: model.accessibilityAnnouncement) { _, announcement in

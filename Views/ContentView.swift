@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
   @State private var selection = PrimaryTab.myDay
+  @State private var planningRevision = 0
   let dependencies: AppDependencies
 
   var body: some View {
@@ -11,6 +12,7 @@ struct ContentView: View {
           repository: dependencies.dailyTracking,
           date: dependencies.date,
           timeZone: dependencies.timeZone,
+          planningRevision: planningRevision,
           onOpenGoals: { selection = .myGoals }
         )
       } label: {
@@ -21,7 +23,8 @@ struct ContentView: View {
         MyGoalsView(
           repository: dependencies.planning,
           date: dependencies.date,
-          timeZone: dependencies.timeZone
+          timeZone: dependencies.timeZone,
+          onPlanChanged: { planningRevision += 1 }
         )
       } label: {
         Label("My Goals", systemImage: "target")

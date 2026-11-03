@@ -22,6 +22,9 @@ struct CadenceApp: App {
     if arguments.contains("--ui-test-my-goals-read-failure") {
       return { try AppDependencies.uiTest(.myGoalsReadFailure) }
     }
+    if arguments.contains("--ui-test-my-goals-mutation-failure") {
+      return { try AppDependencies.uiTest(.myGoalsMutationFailure) }
+    }
     return AppDependencies.live
   }
 

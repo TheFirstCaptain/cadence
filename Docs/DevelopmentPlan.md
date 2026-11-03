@@ -45,7 +45,7 @@
 - **F-003B Goal checkoffs:** Complete. Added one-tap completion and undo with persistence, rollback, relaunch, concurrency guards, and accessible feedback.
 - **F-003 My Day:** Complete. Presentation, Goal checkoffs, and iIndulged quick logging passed independent review, local and hosted full gates, and manual validation.
 - **F-004A weekly plan lifecycle:** Complete. Sunday Planning, atomic automatic carry-forward, boundary-safe My Goals states, My Day integration, independent review, local/hosted full gates, and manual validation passed.
-- Build F-004B focused Goal creation/editing with Daily, Weekly, Custom 2–6, duplicate validation, and the 60-character name limit.
+- **F-004B Goal editor:** Complete. Focused creation/editing, Daily/Weekly/Custom frequency controls, duplicate and 60-character validation, active-week My Day refresh, independent review, the 90-test full gate, and manual validation passed.
 - Build F-004C persisted ordering, gentle guidance beginning at 8 Goals, and history-preserving removal.
 
 ### 3. iIndulged expansion

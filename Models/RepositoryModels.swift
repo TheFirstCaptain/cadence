@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated struct GoalConfiguration: Hashable, Sendable {
+  static let maximumNameLength = 60
+
   let name: String
   let frequency: GoalFrequency
 }
@@ -115,6 +117,7 @@ nonisolated enum RepositoryError: Error, Equatable, Sendable {
   case goalNotFound
   case categoryNotFound
   case blankGoalName
+  case goalNameTooLong
   case duplicateGoalName
   case invalidFrequency
   case invalidOrdering

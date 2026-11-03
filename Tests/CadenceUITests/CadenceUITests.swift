@@ -59,7 +59,7 @@ final class CadenceUITests: XCTestCase {
   }
 
   @MainActor
-  func testPopulatedMyGoalsShowsGoalsInPlanOrderWithoutEditingControls() throws {
+  func testPopulatedMyGoalsShowsGoalsInPlanOrderWithEditingControls() throws {
     let app = XCUIApplication()
     app.launchArguments = ["--ui-test-my-day-populated"]
     app.launch()
@@ -70,7 +70,59 @@ final class CadenceUITests: XCTestCase {
     XCTAssertTrue(elementWithLabel("Swim, Weekly", in: app).waitForExistence(timeout: 5))
     XCTAssertTrue(elementWithLabel("Walk, Daily", in: app).exists)
     XCTAssertTrue(elementWithLabel("Read, 3 days per week", in: app).exists)
-    XCTAssertFalse(app.buttons["Add Goal"].exists)
+    XCTAssertTrue(app.buttons["Add Goal"].exists)
+  }
+
+  @MainActor
+  func testMyGoalsAddsAndEditsAGoalWithFrequencyControls() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-day-empty"]
+    app.launch()
+    waitForReadyState(in: app)
+    primaryDestination("My Goals", in: app).tap()
+
+    app.buttons["Add Goal"].tap()
+    let name = element("goal-name-field", in: app)
+    XCTAssertTrue(name.waitForExistence(timeout: 5))
+    name.tap()
+    name.typeText("Stretch")
+    app.buttons["Add"].tap()
+    XCTAssertTrue(elementWithLabel("Stretch, Daily", in: app).waitForExistence(timeout: 5))
+
+    app.buttons["Edit Stretch"].tap()
+    app.buttons["Custom"].tap()
+    XCTAssertTrue(element("goal-custom-target", in: app).exists)
+    app.buttons["Save"].tap()
+    XCTAssertTrue(app.buttons["Edit Stretch"].waitForExistence(timeout: 5))
+    app.buttons["Edit Stretch"].tap()
+    XCTAssertTrue(app.buttons["Custom"].isSelected)
+    XCTAssertEqual(element("goal-custom-target", in: app).label, "2 days per week")
+    app.buttons["Cancel"].tap()
+
+    primaryDestination("My Day", in: app).tap()
+    XCTAssertTrue(
+      elementWithLabel("Stretch, Not complete today, 0 of 2", in: app)
+        .waitForExistence(timeout: 5))
+  }
+
+  @MainActor
+  func testMyGoalsFailedSaveKeepsDraftAndRetriesCalmly() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-test-my-goals-mutation-failure"]
+    app.launch()
+    waitForReadyState(in: app)
+    primaryDestination("My Goals", in: app).tap()
+
+    app.buttons["Add Goal"].tap()
+    let name = element("goal-name-field", in: app)
+    name.tap()
+    name.typeText("Stretch")
+    app.buttons["Add"].tap()
+    XCTAssertTrue(
+      app.staticTexts["Couldn’t save this Goal. Please try again."].waitForExistence(timeout: 5))
+    XCTAssertEqual(name.value as? String, "Stretch")
+    app.buttons["Add"].tap()
+    XCTAssertTrue(elementWithLabel("Stretch, Daily", in: app).waitForExistence(timeout: 5))
   }
 
   @MainActor

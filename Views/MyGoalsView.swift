@@ -38,6 +38,7 @@ nonisolated struct MyGoalsIdentity: Hashable, Sendable {
 nonisolated struct MyGoalsRow: Hashable, Sendable, Identifiable {
   let id: UUID
   let name: String
+  let frequency: GoalFrequency
   let frequencyText: String
 }
 
@@ -51,8 +52,29 @@ nonisolated struct MyGoalsPresentation: Hashable, Sendable {
       MyGoalsRow(
         id: goal.id,
         name: goal.name,
+        frequency: goal.frequency,
         frequencyText: Self.frequencyText(goal.frequency))
     }
+  }
+
+  func replacing(with goal: PlannedGoalSnapshot) -> MyGoalsPresentation {
+    var updated = rows.filter { $0.id != goal.id }
+    updated.append(
+      MyGoalsRow(
+        id: goal.id, name: goal.name, frequency: goal.frequency,
+        frequencyText: Self.frequencyText(goal.frequency)))
+    if let oldIndex = rows.firstIndex(where: { $0.id == goal.id }),
+      let newIndex = updated.firstIndex(where: { $0.id == goal.id })
+    {
+      let row = updated.remove(at: newIndex)
+      updated.insert(row, at: oldIndex)
+    }
+    return MyGoalsPresentation(identity: identity, rows: updated)
+  }
+
+  private init(identity: MyGoalsIdentity, rows: [MyGoalsRow]) {
+    self.identity = identity
+    self.rows = rows
   }
 
   private static func frequencyText(_ frequency: GoalFrequency) -> String {
@@ -66,6 +88,13 @@ nonisolated struct MyGoalsPresentation: Hashable, Sendable {
 
 @MainActor
 final class MyGoalsModel: ObservableObject {
+  enum SaveResult: Equatable {
+    case saved
+    case duplicate
+    case tooLong
+    case planningWeekChanged
+    case failed
+  }
   enum State: Equatable {
     case loading
     case ready(MyGoalsPresentation)
@@ -73,20 +102,26 @@ final class MyGoalsModel: ObservableObject {
   }
 
   @Published private(set) var state: State = .loading
+  @Published private(set) var isSaving = false
+  @Published private(set) var guidanceMessage: String?
 
   private let repository: any PlanningRepository
   private let date: DateProvider
   private let timeZone: CurrentTimeZoneProvider
   private var generation = 0
+  private var refreshPending = false
+  private let onPlanChanged: @MainActor () -> Void
 
   init(
     repository: any PlanningRepository,
     date: DateProvider,
-    timeZone: CurrentTimeZoneProvider
+    timeZone: CurrentTimeZoneProvider,
+    onPlanChanged: @escaping @MainActor () -> Void = {}
   ) {
     self.repository = repository
     self.date = date
     self.timeZone = timeZone
+    self.onPlanChanged = onPlanChanged
   }
 
   func loadInitial() async {
@@ -98,12 +133,74 @@ final class MyGoalsModel: ObservableObject {
   }
 
   func refreshFromForeground() async {
+    if isSaving {
+      refreshPending = true
+      return
+    }
     await load(showLoading: false)
   }
 
   func refreshFromBoundaryEvent() async {
+    if isSaving {
+      refreshPending = true
+      return
+    }
     let identity = currentIdentity()
     if case .ready(let presentation) = state, presentation.identity == identity { return }
+    await load(showLoading: false)
+  }
+
+  func saveGoal(
+    id: UUID?, configuration: GoalConfiguration, presentedIdentity: MyGoalsIdentity
+  ) async -> SaveResult {
+    guard !isSaving, case .ready(let presentation) = state else { return .failed }
+    guard presentation.identity == presentedIdentity, currentIdentity() == presentedIdentity else {
+      guidanceMessage = "Your planning week changed. Please review this plan and try again."
+      await load(showLoading: false)
+      return .planningWeekChanged
+    }
+
+    guidanceMessage = nil
+    isSaving = true
+    generation += 1
+    let mutationGeneration = generation
+    defer { isSaving = false }
+    do {
+      let goal =
+        if let id {
+          try await repository.updateGoal(id: id, configuration: configuration)
+        } else {
+          try await repository.addGoal(
+            to: presentedIdentity.targetWeek, configuration: configuration)
+        }
+      onPlanChanged()
+      guard mutationGeneration == generation, currentIdentity() == presentedIdentity else {
+        refreshPending = false
+        await load(showLoading: false)
+        return .saved
+      }
+      state = .ready(presentation.replacing(with: goal))
+      await drainPendingRefresh()
+      return .saved
+    } catch RepositoryError.duplicateGoalName {
+      await drainPendingRefresh()
+      return .duplicate
+    } catch RepositoryError.goalNameTooLong {
+      await drainPendingRefresh()
+      return .tooLong
+    } catch RepositoryError.immutablePlan {
+      guidanceMessage = "Your planning week changed. Please review this plan and try again."
+      await load(showLoading: false)
+      return .planningWeekChanged
+    } catch {
+      await drainPendingRefresh()
+      return .failed
+    }
+  }
+
+  private func drainPendingRefresh() async {
+    guard refreshPending else { return }
+    refreshPending = false
     await load(showLoading: false)
   }
 
@@ -130,6 +227,7 @@ final class MyGoalsModel: ObservableObject {
 struct MyGoalsView: View {
   @Environment(\.scenePhase) private var scenePhase
   @StateObject private var model: MyGoalsModel
+  @State private var editor: GoalEditorRoute?
 
   private let refreshEvents: LocalCalendarRefreshEvents
 
@@ -137,10 +235,13 @@ struct MyGoalsView: View {
     repository: any PlanningRepository,
     date: DateProvider,
     timeZone: CurrentTimeZoneProvider,
-    refreshEvents: LocalCalendarRefreshEvents = .live
+    refreshEvents: LocalCalendarRefreshEvents = .live,
+    onPlanChanged: @escaping @MainActor () -> Void = {}
   ) {
     _model = StateObject(
-      wrappedValue: MyGoalsModel(repository: repository, date: date, timeZone: timeZone))
+      wrappedValue: MyGoalsModel(
+        repository: repository, date: date, timeZone: timeZone,
+        onPlanChanged: onPlanChanged))
     self.refreshEvents = refreshEvents
   }
 
@@ -165,7 +266,24 @@ struct MyGoalsView: View {
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .navigationTitle("My Goals")
+      .toolbar {
+        if case .ready(let presentation) = model.state {
+          Button("Add Goal", systemImage: "plus") {
+            editor = GoalEditorRoute(identity: presentation.identity, row: nil)
+          }
+        }
+      }
       .accessibilityIdentifier("my-goals-screen")
+    }
+    .sheet(item: $editor) { route in
+      GoalEditorView(
+        route: route,
+        existingRows: readyRows,
+        save: { configuration in
+          await model.saveGoal(
+            id: route.row?.id, configuration: configuration,
+            presentedIdentity: route.identity)
+        })
     }
     .task {
       await model.loadInitial()
@@ -184,6 +302,12 @@ struct MyGoalsView: View {
     let range = weekRangeText(presentation.identity.targetWeek)
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
+        if let guidanceMessage = model.guidanceMessage {
+          Text(guidanceMessage)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("my-goals-guidance")
+        }
         VStack(alignment: .leading, spacing: 4) {
           Text(presentation.identity.phase.title)
             .font(.title2.bold())
@@ -204,31 +328,36 @@ struct MyGoalsView: View {
         } else {
           VStack(spacing: 0) {
             ForEach(presentation.rows) { row in
-              ViewThatFits(in: .horizontal) {
-                HStack {
-                  Text(row.name)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                  Text(row.frequencyText)
-                    .foregroundStyle(.secondary)
-                }
+              HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                   Text(row.name)
                   Text(row.frequencyText)
                     .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(row.name), \(row.frequencyText)")
+
+                Button("Edit \(row.name)", systemImage: "pencil") {
+                  editor = GoalEditorRoute(identity: presentation.identity, row: row)
+                }
+                .labelStyle(.iconOnly)
+                .accessibilityLabel("Edit \(row.name)")
               }
               .padding(.vertical, 12)
-              .accessibilityElement(children: .combine)
-              .accessibilityLabel("\(row.name), \(row.frequencyText)")
               .accessibilityIdentifier("my-goals-row-\(row.id.uuidString)")
               if row.id != presentation.rows.last?.id { Divider() }
             }
           }
-          .accessibilityIdentifier("my-goals-list")
         }
       }
       .padding()
     }
+  }
+
+  private var readyRows: [MyGoalsRow] {
+    guard case .ready(let presentation) = model.state else { return [] }
+    return presentation.rows
   }
 
   private func weekRangeText(_ week: WeekID) -> String {
@@ -253,5 +382,140 @@ struct MyGoalsView: View {
     calendar.timeZone = TimeZone(secondsFromGMT: 0)!
     let date = calendar.date(from: DateComponents(year: day.year, month: day.month, day: day.day))!
     return date.formatted(.dateTime.month(.wide).day().year())
+  }
+}
+
+private struct GoalEditorRoute: Identifiable {
+  let id = UUID()
+  let identity: MyGoalsIdentity
+  let row: MyGoalsRow?
+}
+
+private struct GoalEditorView: View {
+  @Environment(\.dismiss) private var dismiss
+  @FocusState private var nameFocused: Bool
+  let route: GoalEditorRoute
+  let existingRows: [MyGoalsRow]
+  let save: (GoalConfiguration) async -> MyGoalsModel.SaveResult
+
+  @State private var name: String
+  @State private var kind: GoalFrequency.Kind
+  @State private var customTarget: Int
+  @State private var isSaving = false
+  @State private var message: String?
+
+  init(
+    route: GoalEditorRoute, existingRows: [MyGoalsRow],
+    save: @escaping (GoalConfiguration) async -> MyGoalsModel.SaveResult
+  ) {
+    self.route = route
+    self.existingRows = existingRows
+    self.save = save
+    _name = State(initialValue: route.row?.name ?? "")
+    _kind = State(initialValue: route.row?.frequency.kind ?? .daily)
+    _customTarget = State(
+      initialValue: route.row?.frequency.kind == .custom
+        ? route.row?.frequency.targetPerWeek ?? 2
+        : 2)
+  }
+
+  var body: some View {
+    NavigationStack {
+      Form {
+        Section("Goal") {
+          TextField("Name", text: $name)
+            .focused($nameFocused)
+            .textInputAutocapitalization(.sentences)
+            .accessibilityIdentifier("goal-name-field")
+          if trimmedName.count >= 50 {
+            Text("\(trimmedName.count) of \(GoalConfiguration.maximumNameLength) characters")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+          if let validationMessage {
+            Text(validationMessage)
+              .font(.callout)
+              .foregroundStyle(.secondary)
+          }
+        }
+
+        Section("Frequency") {
+          Picker("Frequency", selection: $kind) {
+            Text("Daily").tag(GoalFrequency.Kind.daily)
+            Text("Weekly").tag(GoalFrequency.Kind.weekly)
+            Text("Custom").tag(GoalFrequency.Kind.custom)
+          }
+          .pickerStyle(.inline)
+          if kind == .custom {
+            Stepper("\(customTarget) days per week", value: $customTarget, in: 2...6)
+              .accessibilityIdentifier("goal-custom-target")
+          }
+        }
+
+        if let message {
+          Section { Text(message).foregroundStyle(.secondary) }
+        }
+      }
+      .navigationTitle(route.row == nil ? "Add Goal" : "Edit Goal")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") { dismiss() }
+        }
+        ToolbarItem(placement: .confirmationAction) {
+          Button(route.row == nil ? "Add" : "Save") { Task { await submit() } }
+            .disabled(!canSave || isSaving)
+        }
+      }
+      .onAppear { if route.row == nil { nameFocused = true } }
+    }
+  }
+
+  private var trimmedName: String {
+    name.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private var isDuplicate: Bool {
+    let normalized = trimmedName.folding(
+      options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    return existingRows.contains {
+      $0.id != route.row?.id
+        && $0.name.folding(
+          options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX")) == normalized
+    }
+  }
+
+  private var validationMessage: String? {
+    if trimmedName.isEmpty { return "Enter a name for this Goal." }
+    if trimmedName.count > GoalConfiguration.maximumNameLength {
+      return "Keep the name to 60 characters or fewer."
+    }
+    if isDuplicate { return "That Goal is already in this plan." }
+    return nil
+  }
+
+  private var canSave: Bool { validationMessage == nil }
+
+  private func submit() async {
+    guard canSave else { return }
+    let frequency: GoalFrequency
+    switch kind {
+    case .daily: frequency = .daily
+    case .weekly: frequency = .weekly
+    case .custom:
+      guard let custom = GoalFrequency.custom(daysPerWeek: customTarget) else { return }
+      frequency = custom
+    }
+    isSaving = true
+    message = nil
+    let result = await save(GoalConfiguration(name: name, frequency: frequency))
+    isSaving = false
+    switch result {
+    case .saved: dismiss()
+    case .duplicate: message = "That Goal is already in this plan."
+    case .tooLong: message = "Keep the name to 60 characters or fewer."
+    case .planningWeekChanged: dismiss()
+    case .failed: message = "Couldn’t save this Goal. Please try again."
+    }
   }
 }

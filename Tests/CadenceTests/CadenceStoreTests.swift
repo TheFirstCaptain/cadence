@@ -99,6 +99,40 @@ struct CadenceStoreTests {
   }
 
   @Test
+  func goalEditingEnforcesNameBoundaryAndPreservesIdentityCheckoffsAndOrder() async throws {
+    let store = try makeStore()
+    _ = try await store.ensurePlan(for: week)
+    let sixtyCharacters = String(repeating: "🌿", count: 60)
+    let first = try await store.addGoal(
+      to: week,
+      configuration: GoalConfiguration(name: "  \(sixtyCharacters)  ", frequency: .daily))
+    #expect(first.name == sixtyCharacters)
+    #expect(first.sortOrder == 0)
+
+    await expectError(.goalNameTooLong) {
+      _ = try await store.addGoal(
+        to: self.week,
+        configuration: GoalConfiguration(
+          name: String(repeating: "a", count: 61), frequency: .weekly))
+    }
+    #expect(try await store.plan(for: week)?.goals.map(\.id) == [first.id])
+
+    let day = LocalDay(year: 2026, month: 10, day: 28)!
+    let checkoff = try await store.recordCheckoff(goalID: first.id, on: day)
+    let updated = try await store.updateGoal(
+      id: first.id,
+      configuration: GoalConfiguration(name: "Evening walk", frequency: .custom(daysPerWeek: 4)!))
+
+    #expect(updated.id == first.id)
+    #expect(updated.lineageID == first.lineageID)
+    #expect(updated.activeFrom == first.activeFrom)
+    #expect(updated.sortOrder == first.sortOrder)
+    #expect(updated.name == "Evening walk")
+    #expect(updated.frequency == .custom(daysPerWeek: 4))
+    #expect(try await store.dayHistory(for: day).checkoffs.map(\.id) == [checkoff.id])
+  }
+
+  @Test
   func removalUsesInclusiveHistoryWhileCurrentOfferingEndsImmediately() async throws {
     let store = try makeStore()
     _ = try await store.ensurePlan(for: week)

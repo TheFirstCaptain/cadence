@@ -531,6 +531,9 @@ actor CadenceStore:
   {
     let name = configuration.name.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !name.isEmpty else { throw RepositoryError.blankGoalName }
+    guard name.count <= GoalConfiguration.maximumNameLength else {
+      throw RepositoryError.goalNameTooLong
+    }
     let normalized = name.folding(
       options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
     return (name, normalized, configuration.frequency)
