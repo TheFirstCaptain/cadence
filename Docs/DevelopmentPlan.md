@@ -46,7 +46,8 @@
 - **F-003 My Day:** Complete. Presentation, Goal checkoffs, and iIndulged quick logging passed independent review, local and hosted full gates, and manual validation.
 - **F-004A weekly plan lifecycle:** Complete. Sunday Planning, atomic automatic carry-forward, boundary-safe My Goals states, My Day integration, independent review, local/hosted full gates, and manual validation passed.
 - **F-004B Goal editor:** Complete. Focused creation/editing, Daily/Weekly/Custom frequency controls, duplicate and 60-character validation, active-week My Day refresh, independent review, the 90-test full gate, and manual validation passed.
-- **F-004C Goal organization and removal:** Validating. Persisted ordering, gentle guidance beginning at 8 Goals, history-preserving removal, rollback, and regression coverage are implemented; independent review, the 102-test local full gate, documentation reconciliation, and manual accessibility validation have passed. Hosted evidence remains before the My Goals umbrella closes.
+- **F-004C Goal organization and removal:** Complete. Persisted ordering, gentle guidance beginning at 8 Goals, history-preserving removal, rollback, and regression coverage passed independent review, local and hosted 102-test full gates, documentation reconciliation, and manual accessibility validation.
+- **F-004 My Goals integration:** Complete. B-003 resolved the hosted cross-test application-lifecycle failure with explicit teardown ownership and target-wide negative guards; immutable run `42371290847` validates revision `7d963e26`.
 
 ### 3. iIndulged expansion
 
