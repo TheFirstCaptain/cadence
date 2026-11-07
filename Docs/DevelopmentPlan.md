@@ -57,9 +57,10 @@
 
 ### 4. History
 
-- Build current and prior Week views, calendar Month summaries, and day details.
-- Show completed-of-target Goal counts and neutral iIndulged totals without percentages or comparisons.
-- Support reversible historical corrections and stable original local dates.
+- **F-005A Week History foundation:** Clarify and build current/prior Week aggregation, period navigation, plain Goal counts, neutral iIndulged distribution, and lifecycle refresh.
+- **F-005B Month History:** Clarify and build one atomic calendar-Month summary with complete overlapping weekly Goal rows and Week drill-down.
+- **F-005C Day History detail:** Clarify and build read-only daily Goal/checkoff and timestamped occurrence inspection.
+- **F-005D Historical corrections:** Clarify and build guarded past checkoff changes, exact occurrence deletion/temporary Undo, rollback, and immediate summary invalidation.
 
 ### 5. Polish and validation
 

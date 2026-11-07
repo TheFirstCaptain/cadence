@@ -41,6 +41,8 @@ My Goals is delivered as three focused slices: F-004A establishes weekly plan se
 - Drill into day details and correct personal records with reversible deletion.
 - Preserve stable original local dates across time-zone changes.
 
+History is delivered as four focused slices: F-005A establishes Week aggregation and navigation; F-005B adds atomic calendar-Month history and Week drill-down; F-005C adds read-only Day detail; F-005D adds guarded historical correction and exact temporary Undo.
+
 ## Phase 4: Polish
 
 - Complete accessibility and device-size review.
