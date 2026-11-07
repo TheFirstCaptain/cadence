@@ -7,9 +7,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testAppLaunchesWithMyDaySelected() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-empty"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-empty"])
 
     waitForReadyState(in: app)
     XCTAssertTrue(app.navigationBars["My Day"].exists)
@@ -19,9 +17,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testNavigatesAcrossAllPrimaryTabs() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-empty"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-empty"])
 
     waitForReadyState(in: app)
 
@@ -44,9 +40,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testEmptyMyGoalsShowsExplicitWeekContext() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-empty"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-empty"])
     waitForReadyState(in: app)
 
     primaryDestination("My Goals", in: app).tap()
@@ -60,9 +54,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testPopulatedMyGoalsShowsGoalsInPlanOrderWithEditingControls() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-populated"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
     waitForReadyState(in: app)
 
     primaryDestination("My Goals", in: app).tap()
@@ -75,9 +67,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testMyGoalsAddsAndEditsAGoalWithFrequencyControls() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-empty"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-empty"])
     waitForReadyState(in: app)
     primaryDestination("My Goals", in: app).tap()
 
@@ -107,9 +97,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testMyGoalsFailedSaveKeepsDraftAndRetriesCalmly() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-goals-mutation-failure"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-goals-mutation-failure"])
     waitForReadyState(in: app)
     primaryDestination("My Goals", in: app).tap()
 
@@ -127,9 +115,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testMyGoalsShowsManageableGuidanceWithoutBlockingAdditions() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-goals-many"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-goals-many"])
     waitForReadyState(in: app)
     primaryDestination("My Goals", in: app).tap()
 
@@ -139,9 +125,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testMyGoalsRemovalExplainsHistoryAndCanCancelOrConfirm() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-populated"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
     waitForReadyState(in: app)
     primaryDestination("My Goals", in: app).tap()
 
@@ -164,9 +148,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testMyGoalsFailedReorderRollsBackThenRetriesAndRefreshesMyDay() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-goals-reorder-failure"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-goals-reorder-failure"])
     waitForReadyState(in: app)
     primaryDestination("My Goals", in: app).tap()
 
@@ -188,9 +170,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testMyGoalsReorderDisablesUnavailableDirections() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-populated"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
     waitForReadyState(in: app)
     primaryDestination("My Goals", in: app).tap()
 
@@ -207,9 +187,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testMyGoalsFailedRemovalKeepsEditorAndRetries() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-goals-removal-failure"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-goals-removal-failure"])
     waitForReadyState(in: app)
     primaryDestination("My Goals", in: app).tap()
 
@@ -229,9 +207,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testMyGoalsReadFailureOffersCalmRetry() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-goals-read-failure"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-goals-read-failure"])
     waitForReadyState(in: app)
 
     primaryDestination("My Goals", in: app).tap()
@@ -245,9 +221,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testEmptyMyDayKeepsIIndulgedVisibleAndRoutesDirectlyToMyGoals() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-empty"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-empty"])
 
     waitForReadyState(in: app)
     XCTAssertTrue(app.staticTexts["No Goals planned yet"].exists)
@@ -269,9 +243,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testPopulatedMyDayGroupsGoalsInPlanOrderAndShowsProgress() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-populated"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
 
     waitForReadyState(in: app)
     XCTAssertTrue(app.staticTexts["Today"].exists)
@@ -284,9 +256,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testGoalCheckoffsCompleteAndUndoAcrossFrequencyClasses() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-populated"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
     waitForReadyState(in: app)
 
     let walkComplete = elementWithLabel("Walk, Complete", in: app)
@@ -311,9 +281,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testGoalMutationFailureRestoresRowAndKeepsCalmGuidanceInline() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-mutation-failure"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-mutation-failure"])
     waitForReadyState(in: app)
 
     let swim = elementWithLabel("Swim, Not complete today, 0 of 1", in: app)
@@ -330,9 +298,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testIIndulgedCountersAddRemoveAndRespectZeroFloor() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-populated"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
     waitForReadyState(in: app)
 
     XCTAssertTrue(app.staticTexts["2 today"].exists)
@@ -349,9 +315,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testIIndulgedMutationFailureRestoresCountAndShowsGuidance() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-mutation-failure"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-mutation-failure"])
     waitForReadyState(in: app)
 
     app.buttons["Add Junk Food occurrence"].tap()
@@ -364,9 +328,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testMyDayReadFailureKeepsStructureAndOffersRetry() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-my-day-read-failure"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-my-day-read-failure"])
 
     waitForReadyState(in: app)
     XCTAssertTrue(app.staticTexts["Goals"].exists)
@@ -380,9 +342,7 @@ final class CadenceUITests: XCTestCase {
 
   @MainActor
   func testStartupFailureOffersCalmRetryWithoutExposingDetails() throws {
-    let app = XCUIApplication()
-    app.launchArguments = ["--ui-test-startup-failure"]
-    app.launch()
+    let app = launchApplication(arguments: ["--ui-test-startup-failure"])
 
     XCTAssertTrue(element("app-startup-failed", in: app).waitForExistence(timeout: 5))
     XCTAssertFalse(element("app-ready", in: app).exists)
@@ -393,6 +353,17 @@ final class CadenceUITests: XCTestCase {
       NSPredicate(format: "label CONTAINS[c] %@", "error")
     ).firstMatch
     XCTAssertFalse(rawErrorText.exists)
+  }
+
+  @MainActor
+  private func launchApplication(arguments: [String]) -> XCUIApplication {
+    let app = XCUIApplication()
+    app.launchArguments = arguments
+    addTeardownBlock {
+      app.terminate()
+    }
+    app.launch()
+    return app
   }
 
   @MainActor

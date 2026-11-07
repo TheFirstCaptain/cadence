@@ -165,6 +165,14 @@ fixture="$(make_fixture simulator-readiness-wiring)"
 ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!(%q{Scripts/prepare-simulator.sh "$destination" "$artifact_root"}, %q{echo "simulator readiness skipped"}); File.write(path, text)' "$fixture/Scripts/quality.sh"
 expect_failure simulator-readiness-wiring "full quality gate must prepare the simulator before UI tests"
 
+fixture="$(make_fixture ui-application-lifecycle-centralization)"
+printf '%s\n' 'import XCTest' 'let unmanagedApplication = XCUIApplication()' >"$fixture/Tests/CadenceUITests/UnmanagedApplicationFixture.swift"
+expect_failure ui-application-lifecycle-centralization "UI tests must centralize XCUIApplication construction in launchApplication"
+
+fixture="$(make_fixture ui-application-lifecycle-cleanup)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); changed = text.sub!(/\s+addTeardownBlock \{\n\s+app\.terminate\(\)\n\s+\}/, ""); abort("UI lifecycle cleanup fixture mutation did not apply") unless changed; File.write(path, text)' "$fixture/Tests/CadenceUITests/CadenceUITests.swift"
+expect_failure ui-application-lifecycle-cleanup "UI test launchApplication must register teardown termination before launch"
+
 simulator_fixture="$fixture_root/simulator-readiness-behavior"
 simulator_bin="$simulator_fixture/bin"
 simulator_artifacts="$simulator_fixture/artifacts"

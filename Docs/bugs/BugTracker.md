@@ -12,3 +12,4 @@ Before resolving a bug, confirm it, add a regression test where practical, make 
 | --- | --- | --- | --- | --- | --- | --- |
 | B-001 | Hosted quality run masked UI test failures | Resolved | P1 | [B-001.md](./B-001.md) | 2026-10-29 | Run `40971487838` correctly failed and uploaded evidence after result verification, pipeline propagation, and artifact-path guards were added. |
 | B-002 | Hosted shell UI tests fail on cold launch and adaptive navigation | Resolved | P1 | [B-002.md](./B-002.md) | 2026-10-30 | Hosted run `41036710609` passed all 37 tests on revision `1d53b606`; readiness and adaptive-navigation regression guards remain enforced. |
+| B-003 | Hosted UI tests can retain the app between cases | Validating | P1 | [B-003.md](./B-003.md) | 2026-11-07 | Explicit lifecycle ownership, two negative policy fixtures, the focused failing order, and the 102-test local full gate pass; independent final review and hosted evidence remain. |

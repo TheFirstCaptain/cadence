@@ -161,6 +161,16 @@ fail_policy("CI failure upload path must match CADENCE_ARTIFACT_ROOT") unless ar
 
 result_verifier = read(root, "Scripts/verify-result-bundles.sh")
 quality_script = read(root, "Scripts/quality.sh")
+ui_test_suite = read(root, "Tests/CadenceUITests/CadenceUITests.swift")
+ui_test_sources = Dir[root.join("Tests/CadenceUITests/**/*.swift")].map { |path| File.read(path) }.join("\n")
+ui_application_constructors = ui_test_sources.scan(/XCUIApplication\s*\(/).length
+unless ui_application_constructors == 1 &&
+    ui_test_suite.match?(/private func launchApplication\(arguments: \[String\]\) -> XCUIApplication \{.*?XCUIApplication\s*\(/m)
+  fail_policy("UI tests must centralize XCUIApplication construction in launchApplication")
+end
+unless ui_test_suite.match?(/private func launchApplication\(arguments: \[String\]\) -> XCUIApplication \{.*?addTeardownBlock\s*\{.*?app\.terminate\(\).*?\}.*?app\.launch\(\)/m)
+  fail_policy("UI test launchApplication must register teardown termination before launch")
+end
 readiness_call = 'Scripts/prepare-simulator.sh "$destination" "$artifact_root"'
 ui_test_call = 'test-without-building'
 unless quality_script.scan(readiness_call).length == 1 &&
