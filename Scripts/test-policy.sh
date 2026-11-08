@@ -178,14 +178,30 @@ simulator_bin="$simulator_fixture/bin"
 simulator_artifacts="$simulator_fixture/artifacts"
 simulator_calls="$simulator_fixture/calls.log"
 mkdir -p "$simulator_bin" "$simulator_artifacts"
-printf '%s\n' '#!/bin/bash' 'echo "$*" >>"$FAKE_SIMCTL_CALLS"' '[[ "${FAKE_SIMCTL_FAILURE:-0}" != "1" ]]' >"$simulator_bin/xcrun"
+printf '%s\n' \
+  '#!/bin/bash' \
+  'echo "$*" >>"$FAKE_SIMCTL_CALLS"' \
+  'if [[ "${FAKE_SIMCTL_MODE:-success}" == "nonzero-failure" ]]; then exit 1; fi' \
+  'if [[ "${FAKE_SIMCTL_MODE:-success}" == "terminal-failure" ]]; then' \
+  '  printf "[fixture] Status=3, isTerminal=YES\n\tData Migration Failed\n"' \
+  'elif [[ "${FAKE_SIMCTL_MODE:-success}" == "missing-terminal" ]]; then' \
+  '  printf "[fixture] Status=2, isTerminal=NO\n\tBooting\n"' \
+  'else' \
+  '  printf "[fixture] Status=4294967295, isTerminal=YES\n\tFinished\n"' \
+  'fi' >"$simulator_bin/xcrun"
 chmod +x "$simulator_bin/xcrun"
 FAKE_SIMCTL_CALLS="$simulator_calls" PATH="$simulator_bin:$PATH" Scripts/prepare-simulator.sh "platform=iOS Simulator,id=fixture-udid" "$simulator_artifacts"
 grep -Fxq 'simctl bootstatus fixture-udid -b' "$simulator_calls" || {
   echo "policy fixtures: simulator readiness did not request boot-if-needed readiness" >&2
   exit 1
 }
-expect_command_failure simulator-readiness-failure "simulator did not become ready" env FAKE_SIMCTL_CALLS="$simulator_calls" FAKE_SIMCTL_FAILURE=1 PATH="$simulator_bin:$PATH" Scripts/prepare-simulator.sh "platform=iOS Simulator,id=fixture-udid" "$simulator_artifacts"
+expect_command_failure simulator-readiness-failure "simulator did not become ready" env FAKE_SIMCTL_CALLS="$simulator_calls" FAKE_SIMCTL_MODE=nonzero-failure PATH="$simulator_bin:$PATH" Scripts/prepare-simulator.sh "platform=iOS Simulator,id=fixture-udid" "$simulator_artifacts"
+expect_command_failure simulator-readiness-terminal-failure "simulator did not report successful terminal readiness" env FAKE_SIMCTL_CALLS="$simulator_calls" FAKE_SIMCTL_MODE=terminal-failure PATH="$simulator_bin:$PATH" Scripts/prepare-simulator.sh "platform=iOS Simulator,id=fixture-udid" "$simulator_artifacts"
+grep -Fq "Data Migration Failed" "$fixture_root/simulator-readiness-terminal-failure-command.log" || {
+  echo "policy fixtures: simulator terminal failure did not preserve readiness diagnostics" >&2
+  exit 1
+}
+expect_command_failure simulator-readiness-missing-terminal "simulator did not report successful terminal readiness" env FAKE_SIMCTL_CALLS="$simulator_calls" FAKE_SIMCTL_MODE=missing-terminal PATH="$simulator_bin:$PATH" Scripts/prepare-simulator.sh "platform=iOS Simulator,id=fixture-udid" "$simulator_artifacts"
 echo "policy fixtures: simulator-readiness behavior passed"
 
 destination_artifacts="$fixture_root/destination"

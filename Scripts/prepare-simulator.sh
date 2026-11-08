@@ -69,3 +69,16 @@ if ! xcrun simctl bootstatus "$device_id" -b >"$readiness_log" 2>&1; then
   echo "quality: simulator did not become ready: $device_id" >&2
   exit 1
 fi
+
+if ! ruby -e '
+  lines = File.readlines(ARGV.fetch(0), chomp: true)
+  terminal_index = lines.rindex { |line| line.match?(/Status=.*isTerminal=YES/) }
+  exit 1 unless terminal_index
+
+  outcome = lines.drop(terminal_index + 1).find { |line| !line.strip.empty? }
+  exit 1 unless outcome&.strip == "Finished"
+' "$readiness_log"; then
+  cat "$readiness_log" >&2
+  echo "quality: simulator did not report successful terminal readiness: $device_id" >&2
+  exit 1
+fi
