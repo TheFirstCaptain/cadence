@@ -99,7 +99,8 @@ else
     build-for-testing
 
   echo "quality: running unit and UI tests"
-  xcodebuild "${common_arguments[@]}" \
+  full_test_arguments=("${common_arguments[@]}" -parallel-testing-enabled NO)
+  xcodebuild "${full_test_arguments[@]}" \
     -resultBundlePath "$test_results" \
     test-without-building
 fi

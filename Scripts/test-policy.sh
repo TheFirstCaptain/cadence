@@ -165,6 +165,17 @@ fixture="$(make_fixture simulator-readiness-wiring)"
 ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!(%q{Scripts/prepare-simulator.sh "$destination" "$artifact_root"}, %q{echo "simulator readiness skipped"}); File.write(path, text)' "$fixture/Scripts/quality.sh"
 expect_failure simulator-readiness-wiring "full quality gate must prepare the simulator before UI tests"
 
+fixture="$(make_fixture full-test-serialization-wiring)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); changed = text.sub!(%q{-parallel-testing-enabled NO}, %q{-parallel-testing-enabled YES}); abort("full-test serialization fixture mutation did not apply") unless changed; File.write(path, text)' "$fixture/Scripts/quality.sh"
+expect_failure full-test-serialization-wiring "full quality gate must disable parallel test execution"
+
+fixture="$(make_fixture full-scheme-serialization)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); changed = text.sub!(%q{<TestableReference
+            skipped = "NO">}, %q{<TestableReference
+            skipped = "NO"
+            parallelizable = "YES">}); abort("full-scheme serialization fixture mutation did not apply") unless changed; File.write(path, text)' "$fixture/Cadence.xcodeproj/xcshareddata/xcschemes/Cadence.xcscheme"
+expect_failure full-scheme-serialization "authoritative full scheme must keep every test target nonparallel"
+
 fixture="$(make_fixture ui-application-lifecycle-centralization)"
 printf '%s\n' 'import XCTest' 'let unmanagedApplication = XCUIApplication()' >"$fixture/Tests/CadenceUITests/UnmanagedApplicationFixture.swift"
 expect_failure ui-application-lifecycle-centralization "UI tests must centralize XCUIApplication construction in launchApplication"

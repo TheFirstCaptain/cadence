@@ -161,6 +161,7 @@ fail_policy("CI failure upload path must match CADENCE_ARTIFACT_ROOT") unless ar
 
 result_verifier = read(root, "Scripts/verify-result-bundles.sh")
 quality_script = read(root, "Scripts/quality.sh")
+full_scheme = read(root, "Cadence.xcodeproj/xcshareddata/xcschemes/Cadence.xcscheme")
 ui_test_suite = read(root, "Tests/CadenceUITests/CadenceUITests.swift")
 ui_test_sources = Dir[root.join("Tests/CadenceUITests/**/*.swift")].map { |path| File.read(path) }.join("\n")
 ui_application_constructors = ui_test_sources.scan(/XCUIApplication\s*\(/).length
@@ -176,6 +177,15 @@ ui_test_call = 'test-without-building'
 unless quality_script.scan(readiness_call).length == 1 &&
     quality_script.index(readiness_call) < quality_script.rindex(ui_test_call)
   fail_policy("full quality gate must prepare the simulator before UI tests")
+end
+full_test_arguments = 'full_test_arguments=("${common_arguments[@]}" -parallel-testing-enabled NO)'
+full_test_invocation = 'xcodebuild "${full_test_arguments[@]}"'
+unless quality_script.scan(full_test_arguments).length == 1 &&
+    quality_script.scan(full_test_invocation).length == 1
+  fail_policy("full quality gate must disable parallel test execution")
+end
+if full_scheme.match?(/<TestableReference\b[^>]*\bparallelizable\s*=\s*"YES"/m)
+  fail_policy("authoritative full scheme must keep every test target nonparallel")
 end
 unless result_verifier.include?('xcresulttool get test-results summary --path "$2"')
   fail_policy("result-bundle verification must extract the test summary from Tests.xcresult")
