@@ -17,9 +17,9 @@ The app is intended to be private and local-first. Punitive streaks, leaderboard
 
 ## Current status
 
-Cadence has completed its development foundation, My Day, and My Goals. Its three-tab product skeleton—My Day, My Goals, and History—builds on a versioned local data model, repository boundary, deterministic date services, and a shared local/hosted quality gate. History remains in clarification and will be discussed before implementation begins.
+Cadence has completed its development foundation, My Day, and My Goals. Its three-tab product skeleton—My Day, My Goals, and History—builds on a versioned local data model, repository boundary, deterministic date services, and a shared local/hosted quality gate. The F-005A weekly History foundation is now being built and validated.
 
-[F-002: iOS Project Foundation](Docs/features/F-002.md), [F-003: My Day](Docs/features/F-003.md), and [F-004: My Goals](Docs/features/F-004.md) are complete. [F-005: History](Docs/features/F-005.md) remains in clarification. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
+[F-002: iOS Project Foundation](Docs/features/F-002.md), [F-003: My Day](Docs/features/F-003.md), and [F-004: My Goals](Docs/features/F-004.md) are complete. [F-005A: Week History Foundation](Docs/features/F-005A.md) is building; later History slices remain queued for clarification. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
 
 ## Repository layout
 

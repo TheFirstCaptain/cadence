@@ -108,6 +108,7 @@ nonisolated struct MyDaySnapshot: Hashable, Sendable {
 nonisolated struct WeekActivitySnapshot: Hashable, Sendable {
   let plan: WeeklyPlanSnapshot?
   let checkoffs: [GoalCheckoffSnapshot]
+  let categories: [IndulgenceCategorySnapshot]
   let occurrences: [IndulgenceOccurrenceSnapshot]
 }
 

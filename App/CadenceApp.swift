@@ -34,6 +34,9 @@ struct CadenceApp: App {
     if arguments.contains("--ui-test-my-goals-removal-failure") {
       return { try AppDependencies.uiTest(.myGoalsRemovalFailure) }
     }
+    if arguments.contains("--ui-test-history-read-failure") {
+      return { try AppDependencies.uiTest(.historyReadFailure) }
+    }
     return AppDependencies.live
   }
 

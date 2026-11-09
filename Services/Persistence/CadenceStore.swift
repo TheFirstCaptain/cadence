@@ -307,7 +307,22 @@ actor CadenceStore:
       .filter { dayKeys.contains($0.localDayKey) }
       .map(occurrenceSnapshot)
       .sorted { $0.instant < $1.instant }
-    return WeekActivitySnapshot(plan: plan, checkoffs: checkoffs, occurrences: occurrences)
+    let occurrenceCategoryIDs = Set(occurrences.map(\.categoryID))
+    let allCategories = try categoryRecords().map(categorySnapshot)
+    guard occurrenceCategoryIDs.isSubset(of: Set(allCategories.map(\.id))) else {
+      throw RepositoryError.corruptedData
+    }
+    let categories =
+      allCategories
+      .filter { $0.isActive || occurrenceCategoryIDs.contains($0.id) }
+      .sorted {
+        ($0.sortOrder, $0.name, $0.id.uuidString) < ($1.sortOrder, $1.name, $1.id.uuidString)
+      }
+    return WeekActivitySnapshot(
+      plan: plan,
+      checkoffs: checkoffs,
+      categories: categories,
+      occurrences: occurrences)
   }
 
   func recordCheckoff(goalID: UUID, on day: LocalDay) throws -> GoalCheckoffSnapshot {

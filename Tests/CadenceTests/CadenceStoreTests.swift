@@ -60,6 +60,35 @@ struct CadenceStoreTests {
   }
 
   @Test
+  func weekHistoryReadIsAtomicOrderedNonMaterializingAndIncludesRelevantCategories() async throws {
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let store = CadenceStore(modelContainer: container, dependencies: dependencies())
+    try await store.prepare()
+    #expect(try await store.plan(for: week) == nil)
+
+    let candyID = BuiltInIndulgenceCategories.all[2].id
+    let dessertsID = BuiltInIndulgenceCategories.all[4].id
+    _ = try await store.recordIndulgence(categoryID: candyID)
+
+    let context = ModelContext(container)
+    let categories = try context.fetch(FetchDescriptor<IndulgenceCategoryRecord>())
+    try #require(categories.first(where: { $0.id == candyID })).isActive = false
+    try #require(categories.first(where: { $0.id == dessertsID })).isActive = false
+    try context.save()
+
+    let snapshot = try await store.weekSnapshot(for: week)
+
+    #expect(snapshot.plan == nil)
+    #expect(try await store.plan(for: week) == nil)
+    #expect(snapshot.occurrences.map { $0.categoryID } == [candyID])
+    #expect(snapshot.categories.contains(where: { $0.id == candyID && !$0.isActive }))
+    #expect(!snapshot.categories.contains(where: { $0.id == dessertsID }))
+    #expect(
+      snapshot.categories.filter { $0.isActive }.map { $0.name }
+        == BuiltInIndulgenceCategories.all.prefix(4).map { $0.name }.filter { $0 != "Candy" })
+  }
+
+  @Test
   func planningEnforcesIdentityNormalizationOrderingAndHistoricalImmutability() async throws {
     let store = try makeStore()
     let first = try await store.ensurePlan(for: week)

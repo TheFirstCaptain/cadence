@@ -29,13 +29,63 @@ final class CadenceUITests: XCTestCase {
 
     let historyTab = primaryDestination("History", in: app)
     historyTab.tap()
-    XCTAssertTrue(app.staticTexts["history-screen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(element("history-screen", in: app).waitForExistence(timeout: 5))
     XCTAssertTrue(historyTab.isSelected)
 
     let myDayTab = primaryDestination("My Day", in: app)
     myDayTab.tap()
     XCTAssertTrue(app.navigationBars["My Day"].waitForExistence(timeout: 5))
     XCTAssertTrue(myDayTab.isSelected)
+  }
+
+  @MainActor
+  func testEmptyHistoryShowsCurrentWeekAndZeroCountCategories() throws {
+    let app = launchApplication(arguments: ["--ui-test-my-day-empty"])
+    waitForReadyState(in: app)
+
+    primaryDestination("History", in: app).tap()
+
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["No Goals were planned for this week."].exists)
+    XCTAssertTrue(app.staticTexts["0 this week"].firstMatch.exists)
+    XCTAssertTrue(element("history-today-marker", in: app).exists)
+    XCTAssertFalse(element("history-next-week", in: app).isEnabled)
+    XCTAssertFalse(element("history-today", in: app).isEnabled)
+  }
+
+  @MainActor
+  func testPopulatedHistoryShowsNeutralWeeklyPlacementAndNavigation() throws {
+    let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
+    waitForReadyState(in: app)
+    primaryDestination("History", in: app).tap()
+
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+    XCTAssertTrue(
+      app.descendants(matching: .any)
+        .matching(NSPredicate(format: "label BEGINSWITH %@", "Walk, 1 of 5."))
+        .firstMatch.exists)
+    XCTAssertTrue(app.staticTexts["2 this week"].exists)
+    XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "%")).count, 0)
+
+    element("history-previous-week", in: app).tap()
+    XCTAssertTrue(element("history-today", in: app).waitForExistence(timeout: 5))
+    XCTAssertTrue(element("history-today", in: app).isEnabled)
+    XCTAssertTrue(element("history-next-week", in: app).isEnabled)
+    element("history-today", in: app).tap()
+    XCTAssertTrue(element("history-today-marker", in: app).waitForExistence(timeout: 5))
+  }
+
+  @MainActor
+  func testHistoryReadFailureOffersCalmRetry() throws {
+    let app = launchApplication(arguments: ["--ui-test-history-read-failure"])
+    waitForReadyState(in: app)
+    primaryDestination("History", in: app).tap()
+
+    XCTAssertTrue(app.staticTexts["History couldn’t be refreshed"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Try Again"].exists)
+    XCTAssertFalse(
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "SwiftData"))
+        .firstMatch.exists)
   }
 
   @MainActor

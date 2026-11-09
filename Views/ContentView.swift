@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
   @State private var selection = PrimaryTab.myDay
   @State private var planningRevision = 0
+  @State private var historyRevision = 0
   let dependencies: AppDependencies
 
   var body: some View {
@@ -31,10 +32,12 @@ struct ContentView: View {
       }
 
       Tab(value: PrimaryTab.history) {
-        PlaceholderView(
-          title: "History",
-          message: "Your rhythm over time will appear here.",
-          accessibilityIdentifier: "history-screen"
+        HistoryView(
+          repository: dependencies.history,
+          date: dependencies.date,
+          timeZone: dependencies.timeZone,
+          planningRevision: planningRevision,
+          historyRevision: historyRevision
         )
       } label: {
         Label("History", systemImage: "clock.arrow.circlepath")
@@ -48,25 +51,4 @@ enum PrimaryTab: Hashable {
   case myDay
   case myGoals
   case history
-}
-
-private struct PlaceholderView: View {
-  let title: String
-  let message: String
-  let accessibilityIdentifier: String
-
-  var body: some View {
-    VStack(spacing: 12) {
-      Text(title)
-        .font(.largeTitle.bold())
-        .accessibilityIdentifier(accessibilityIdentifier)
-
-      Text(message)
-        .font(.body)
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
-    }
-    .padding()
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-  }
 }

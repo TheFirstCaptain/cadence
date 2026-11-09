@@ -10,6 +10,7 @@ nonisolated enum UITestMyDayMode: Equatable, Sendable {
   case manyGoals
   case myGoalsReorderFailure
   case myGoalsRemovalFailure
+  case historyReadFailure
 }
 
 extension AppDependencies {
@@ -29,7 +30,7 @@ extension AppDependencies {
       case .readFailure: FailingMyDayRepository(base: store, failsReads: true)
       case .mutationFailure: FailingMyDayRepository(base: store, failsReads: false)
       case .empty, .populated, .myGoalsReadFailure, .myGoalsMutationFailure, .manyGoals,
-        .myGoalsReorderFailure, .myGoalsRemovalFailure:
+        .myGoalsReorderFailure, .myGoalsRemovalFailure, .historyReadFailure:
         store
       }
     let planning: any PlanningRepository =
@@ -43,10 +44,12 @@ extension AppDependencies {
         FailFirstMutationPlanningRepository(base: store, operation: .remove)
       default: store
       }
+    let history: any HistoryRepository =
+      mode == .historyReadFailure ? FailingHistoryRepository(base: store) : store
     return AppDependencies(
       planning: planning,
       dailyTracking: dailyTracking,
-      history: store,
+      history: history,
       applicationPreparing: preparer,
       date: date,
       timeZone: timeZone,
@@ -162,6 +165,26 @@ private actor UITestMyDayPreparer: ApplicationPreparing {
     _ = try await store.recordCheckoff(goalID: custom.id, on: day.addingDays(1)!)
     _ = try await store.recordIndulgence(categoryID: BuiltInIndulgenceCategories.all[2].id)
     _ = try await store.recordIndulgence(categoryID: BuiltInIndulgenceCategories.all[2].id)
+  }
+}
+
+private actor FailingHistoryRepository: HistoryRepository {
+  let base: CadenceStore
+
+  init(base: CadenceStore) {
+    self.base = base
+  }
+
+  func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
+    throw RepositoryError.persistenceFailure
+  }
+
+  func dayHistory(for day: LocalDay) async throws -> DayActivitySnapshot {
+    try await base.dayHistory(for: day)
+  }
+
+  func removeOccurrence(id: UUID) async throws -> IndulgenceOccurrenceSnapshot? {
+    try await base.removeOccurrence(id: id)
   }
 }
 

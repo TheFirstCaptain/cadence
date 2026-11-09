@@ -48,7 +48,7 @@ Cadence is a lightweight personal wellness app that helps people find a sustaina
 
 - Open to the current Monday-through-Sunday week and allow switching between Week and calendar Month.
 - Show Goal results as plain completed-of-target counts without percentages.
-- Show every iIndulged category, including zero counts, without previous-period comparisons.
+- Show every active iIndulged category, including zero counts; include an archived category only when the selected period contains one of its occurrences, without previous-period comparisons.
 - Allow navigation to prior periods, day and week drill-down, and a Today action; do not expose future periods.
 - Allow correction of past Goal checkoffs and removal of individual past iIndulged occurrences with Undo.
 - Help the user notice patterns across Goals and indulgence occurrences.

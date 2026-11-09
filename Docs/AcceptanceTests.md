@@ -53,7 +53,7 @@ These are product-level scenarios. Feature records should add narrower validatio
 
 1. When the user opens History, then the current Monday-through-Sunday Week view appears.
 2. Goal progress uses plain counts such as 5 of 7 without percentages.
-3. Every iIndulged category remains visible, including categories with a zero count, and no previous-period comparison appears.
+3. Every active iIndulged category remains visible, including categories with a zero count; archived categories appear only when the selected period contains an occurrence, and no previous-period comparison appears.
 4. Week view shows daily Goal checkoffs and daily iIndulged distribution; tapping a day opens its details.
 5. Month view uses a calendar month, totals iIndulged occurrences dated in that month, and shows compact full-week Goal rows without splitting a weekly target at the month boundary.
 6. The user may navigate to prior weeks and months without an artificial limit, may not navigate into future periods, and can return through Today.
