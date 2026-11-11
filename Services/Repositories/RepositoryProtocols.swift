@@ -28,6 +28,7 @@ nonisolated protocol DailyTrackingRepository: Sendable {
 
 nonisolated protocol HistoryRepository: Sendable {
   func weekSnapshot(for week: WeekID) async throws -> WeekActivitySnapshot
+  func monthSnapshot(for month: MonthID) async throws -> MonthActivitySnapshot
   func dayHistory(for day: LocalDay) async throws -> DayActivitySnapshot
   func removeOccurrence(id: UUID) async throws -> IndulgenceOccurrenceSnapshot?
 }

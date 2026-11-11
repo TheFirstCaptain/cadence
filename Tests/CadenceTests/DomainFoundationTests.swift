@@ -15,12 +15,16 @@ struct DomainFoundationTests {
   func decodingCannotBypassDateAndWeekValidation() {
     let invalidDay = Data(#"{"year":2023,"month":2,"day":29}"#.utf8)
     let sundayWeek = Data(#"{"monday":{"year":2026,"month":10,"day":25}}"#.utf8)
+    let invalidMonth = Data(#"{"year":2026,"month":13}"#.utf8)
 
     #expect(throws: DecodingError.self) {
       try JSONDecoder().decode(LocalDay.self, from: invalidDay)
     }
     #expect(throws: DecodingError.self) {
       try JSONDecoder().decode(WeekID.self, from: sundayWeek)
+    }
+    #expect(throws: DecodingError.self) {
+      try JSONDecoder().decode(MonthID.self, from: invalidMonth)
     }
   }
 
@@ -43,6 +47,28 @@ struct DomainFoundationTests {
 
     #expect(WeekID(containing: sunday)?.monday == LocalDay(year: 2026, month: 10, day: 19))
     #expect(WeekID(containing: monday)?.monday == monday)
+  }
+
+  @Test
+  func monthIdentityProvidesBoundariesRowsAndMajorityMapping() throws {
+    let fourRows = try #require(MonthID(year: 2027, month: 2))
+    let fiveRows = try #require(MonthID(year: 2026, month: 10))
+    let sixRows = try #require(MonthID(year: 2026, month: 8))
+
+    #expect(fourRows.overlappingWeeks.count == 4)
+    #expect(fiveRows.overlappingWeeks.count == 5)
+    #expect(sixRows.overlappingWeeks.count == 6)
+    #expect(fourRows.firstDay == LocalDay(year: 2027, month: 2, day: 1))
+    #expect(fourRows.lastDay == LocalDay(year: 2027, month: 2, day: 28))
+    #expect(fourRows.previous == MonthID(year: 2027, month: 1))
+    #expect(MonthID(year: 2026, month: 12)?.next == MonthID(year: 2027, month: 1))
+
+    let crossing = try #require(WeekID(monday: LocalDay(year: 2026, month: 12, day: 28)!))
+    #expect(MonthID.majorityMonth(of: crossing) == MonthID(year: 2026, month: 12))
+    let januaryMajority = try #require(
+      WeekID(monday: LocalDay(year: 2024, month: 12, day: 30)!)
+    )
+    #expect(MonthID.majorityMonth(of: januaryMajority) == MonthID(year: 2025, month: 1))
   }
 
   @Test

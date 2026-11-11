@@ -144,6 +144,38 @@ struct HistoryModelTests {
   }
 
   @Test
+  func modeSwitchUsesMajorityMonthAndWeekDrillDown() async throws {
+    let repository = StubHistoryRepository()
+    let model = makeModel(repository: repository, day: monday.addingDays(2)!)
+    await model.loadInitial()
+
+    await model.selectMode(.month)
+    let october = MonthID(year: 2026, month: 10)!
+    #expect(model.mode == .month)
+    #expect(try readyMonth(model.state).month == october)
+    #expect(await repository.requestedMonths == [october])
+
+    let priorWeek = WeekID(monday: monday.addingDays(-7)!)!
+    await model.showWeek(priorWeek)
+    #expect(model.mode == .week)
+    #expect(try ready(model.state).week == priorWeek)
+  }
+
+  @Test
+  func monthNavigationGuardsFutureAndTodayRestoresCurrentMonth() async throws {
+    let repository = StubHistoryRepository()
+    let model = makeModel(repository: repository, day: monday.addingDays(2)!)
+    await model.loadInitial()
+    await model.selectMode(.month)
+    await model.showNextMonth()
+    #expect(try readyMonth(model.state).month == MonthID(year: 2026, month: 10))
+    await model.showPreviousMonth()
+    #expect(try readyMonth(model.state).month == MonthID(year: 2026, month: 9))
+    await model.showToday()
+    #expect(try readyMonth(model.state).month == MonthID(year: 2026, month: 10))
+  }
+
+  @Test
   func boundaryFollowsCurrentWeekButPreservesHistoricalSelection() async throws {
     let dates = Mutex(instant(for: monday.addingDays(6)!))
     let repository = StubHistoryRepository()
@@ -185,6 +217,22 @@ struct HistoryModelTests {
     await older.value
 
     #expect(try ready(model.state).week == nextWeek)
+  }
+
+  @Test
+  func newerWeekSelectionWinsWhenDelayedMonthFinishesLast() async throws {
+    let repository = DelayedMonthHistoryRepository()
+    let model = makeModel(repository: repository, day: monday.addingDays(2)!)
+    await model.loadInitial()
+
+    let delayedMonth = Task { await model.selectMode(.month) }
+    await Task.yield()
+    let priorWeek = WeekID(monday: monday.addingDays(-7)!)!
+    await model.showWeek(priorWeek)
+    await delayedMonth.value
+
+    #expect(model.mode == .week)
+    #expect(try ready(model.state).week == priorWeek)
   }
 
   @Test
@@ -232,8 +280,16 @@ struct HistoryModelTests {
   }
 
   private func ready(_ state: HistoryModel.State) throws -> WeekHistoryPresentation {
-    guard case .ready(let presentation) = state else {
+    guard case .ready(.week(let presentation)) = state else {
       Issue.record("Expected ready History state")
+      throw HistoryTestError.expected
+    }
+    return presentation
+  }
+
+  private func readyMonth(_ state: HistoryModel.State) throws -> MonthHistoryPresentation {
+    guard case .ready(.month(let presentation)) = state else {
+      Issue.record("Expected ready Month History state")
       throw HistoryTestError.expected
     }
     return presentation
@@ -330,6 +386,29 @@ private actor DelayedHistoryRepository: HistoryRepository {
     return WeekActivitySnapshot(plan: nil, checkoffs: [], categories: [], occurrences: [])
   }
 
+  func monthSnapshot(for month: MonthID) throws -> MonthActivitySnapshot {
+    MonthActivitySnapshot(month: month, weeks: [], categories: [], occurrences: [])
+  }
+
+  func dayHistory(for day: LocalDay) throws -> DayActivitySnapshot {
+    throw HistoryTestError.expected
+  }
+
+  func removeOccurrence(id: UUID) throws -> IndulgenceOccurrenceSnapshot? {
+    throw HistoryTestError.expected
+  }
+}
+
+private actor DelayedMonthHistoryRepository: HistoryRepository {
+  func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
+    WeekActivitySnapshot(plan: nil, checkoffs: [], categories: [], occurrences: [])
+  }
+
+  func monthSnapshot(for month: MonthID) async throws -> MonthActivitySnapshot {
+    try await Task.sleep(for: .milliseconds(100))
+    return MonthActivitySnapshot(month: month, weeks: [], categories: [], occurrences: [])
+  }
+
   func dayHistory(for day: LocalDay) throws -> DayActivitySnapshot {
     throw HistoryTestError.expected
   }
@@ -345,6 +424,7 @@ private enum HistoryTestError: Error {
 
 private actor StubHistoryRepository: HistoryRepository {
   private(set) var requestedWeeks: [WeekID] = []
+  private(set) var requestedMonths: [MonthID] = []
   private var failuresRemaining: Int
 
   init(failuresRemaining: Int = 0) {
@@ -362,6 +442,11 @@ private actor StubHistoryRepository: HistoryRepository {
       checkoffs: [],
       categories: [],
       occurrences: [])
+  }
+
+  func monthSnapshot(for month: MonthID) throws -> MonthActivitySnapshot {
+    requestedMonths.append(month)
+    return MonthActivitySnapshot(month: month, weeks: [], categories: [], occurrences: [])
   }
 
   func dayHistory(for day: LocalDay) throws -> DayActivitySnapshot {

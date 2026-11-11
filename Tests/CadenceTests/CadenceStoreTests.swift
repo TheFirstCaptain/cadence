@@ -22,7 +22,32 @@ struct CadenceStoreTests {
     requireSendable(DayActivitySnapshot.self)
     requireSendable(MyDaySnapshot.self)
     requireSendable(WeekActivitySnapshot.self)
+    requireSendable(MonthActivitySnapshot.self)
     requireSendable(RepositoryError.self)
+  }
+
+  @Test
+  func monthHistoryReadReturnsCompleteWeeksAndMonthScopedOccurrences() async throws {
+    let store = try makeStore()
+    try await store.prepare()
+    _ = try await store.ensurePlan(for: week)
+    let goal = try await store.addGoal(
+      to: week, configuration: GoalConfiguration(name: "Walk", frequency: .daily))
+    _ = try await store.recordCheckoff(
+      goalID: goal.id, on: LocalDay(year: 2026, month: 10, day: 28)!)
+    let candyID = BuiltInIndulgenceCategories.all[2].id
+    _ = try await store.recordIndulgence(categoryID: candyID)
+
+    let month = MonthID(year: 2026, month: 10)!
+    let snapshot = try await store.monthSnapshot(for: month)
+
+    #expect(snapshot.month == month)
+    #expect(snapshot.weeks.map(\.week) == month.overlappingWeeks)
+    #expect(snapshot.weeks.count == 5)
+    #expect(snapshot.weeks.flatMap { $0.activity.checkoffs }.map(\.plannedGoalID) == [goal.id])
+    #expect(snapshot.occurrences.allSatisfy { month.contains($0.localDay) })
+    #expect(snapshot.occurrences.map(\.categoryID) == [candyID])
+    #expect(snapshot.categories.count == BuiltInIndulgenceCategories.all.count)
   }
 
   @Test

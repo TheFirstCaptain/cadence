@@ -122,21 +122,86 @@ nonisolated struct WeekHistoryPresentation: Hashable, Sendable {
   }
 }
 
+nonisolated struct MonthHistoryIndulgenceRow: Hashable, Sendable, Identifiable {
+  let id: UUID
+  let name: String
+  let symbolName: String
+  let isArchived: Bool
+  let total: Int
+
+  var accessibilityLabel: String {
+    "\(name)\(isArchived ? ", archived" : ""), \(total) \(total == 1 ? "occurrence" : "occurrences") this month"
+  }
+}
+
+nonisolated struct MonthHistoryWeek: Hashable, Sendable, Identifiable {
+  let week: WeekID
+  let presentation: WeekHistoryPresentation
+  let inMonth: [Bool]
+
+  var id: WeekID { week }
+}
+
+nonisolated struct MonthHistoryPresentation: Hashable, Sendable {
+  let month: MonthID
+  let currentMonth: MonthID
+  let weeks: [MonthHistoryWeek]
+  let indulgences: [MonthHistoryIndulgenceRow]
+
+  var isCurrentMonth: Bool { month == currentMonth }
+
+  init(snapshot: MonthActivitySnapshot, currentDay: LocalDay) {
+    month = snapshot.month
+    currentMonth = MonthID(containing: currentDay)
+    let currentWeek = WeekID(containing: currentDay)!
+    weeks = snapshot.weeks.map { value in
+      let presentation = WeekHistoryPresentation(
+        snapshot: value.activity, week: value.week, currentDay: currentDay,
+        currentWeek: currentWeek)
+      return MonthHistoryWeek(
+        week: value.week,
+        presentation: presentation,
+        inMonth: presentation.days.map { snapshot.month.contains($0.day) })
+    }
+    let occurrencesByCategory = Dictionary(grouping: snapshot.occurrences) { $0.categoryID }
+    indulgences = snapshot.categories.map { category in
+      MonthHistoryIndulgenceRow(
+        id: category.id, name: category.name, symbolName: category.symbolName,
+        isArchived: !category.isActive,
+        total: occurrencesByCategory[category.id, default: []].count)
+    }
+  }
+}
+
+nonisolated enum HistoryPeriodPresentation: Equatable, Sendable {
+  case week(WeekHistoryPresentation)
+  case month(MonthHistoryPresentation)
+}
+
+nonisolated enum HistoryMode: String, CaseIterable, Sendable {
+  case week = "Week"
+  case month = "Month"
+}
+
 @MainActor
 final class HistoryModel: ObservableObject {
   enum State: Equatable {
     case loading
-    case ready(WeekHistoryPresentation)
+    case ready(HistoryPeriodPresentation)
     case failed
   }
 
   @Published private(set) var state: State = .loading
+  @Published private(set) var mode: HistoryMode = .week
 
   private let repository: any HistoryRepository
   private let date: DateProvider
   private let timeZone: CurrentTimeZoneProvider
   private var selectedWeek: WeekID?
+  private var selectedMonth: MonthID?
+  private var referenceDay: LocalDay?
   private var knownCurrentWeek: WeekID?
+  private var knownCurrentMonth: MonthID?
   private var generation = 0
 
   init(
@@ -152,13 +217,40 @@ final class HistoryModel: ObservableObject {
   func loadInitial() async {
     let identity = currentIdentity()
     selectedWeek = identity.week
+    selectedMonth = identity.month
+    referenceDay = identity.day
     knownCurrentWeek = identity.week
+    knownCurrentMonth = identity.month
     await load(week: identity.week, showLoading: true, identity: identity)
   }
 
   func retry() async {
     let identity = currentIdentity()
-    await load(week: selectedWeek ?? identity.week, showLoading: true, identity: identity)
+    switch mode {
+    case .week:
+      await load(week: selectedWeek ?? identity.week, showLoading: true, identity: identity)
+    case .month:
+      await load(month: selectedMonth ?? identity.month, showLoading: true, identity: identity)
+    }
+  }
+
+  func selectMode(_ newMode: HistoryMode) async {
+    guard newMode != mode else { return }
+    let identity = currentIdentity()
+    mode = newMode
+    switch newMode {
+    case .month:
+      let week = selectedWeek ?? identity.week
+      let month = MonthID.majorityMonth(of: week)
+      referenceDay = week.monday.addingDays(3)
+      selectedMonth = month
+      await load(month: month, showLoading: true, identity: identity)
+    case .week:
+      let day = referenceDay ?? selectedMonth?.firstDay ?? identity.day
+      let week = WeekID(containing: day)!
+      selectedWeek = week
+      await load(week: week, showLoading: true, identity: identity)
+    }
   }
 
   func showPreviousWeek() async {
@@ -166,6 +258,7 @@ final class HistoryModel: ObservableObject {
       let previous = WeekID(monday: monday)
     else { return }
     self.selectedWeek = previous
+    referenceDay = previous.monday.addingDays(3)
     await load(week: previous, showLoading: true)
   }
 
@@ -176,14 +269,47 @@ final class HistoryModel: ObservableObject {
     else { return }
     let target = min(next, identity.week)
     self.selectedWeek = target
+    referenceDay = target.monday.addingDays(3)
     await load(week: target, showLoading: true, identity: identity)
   }
 
   func showToday() async {
     let identity = currentIdentity()
-    guard selectedWeek != identity.week else { return }
-    selectedWeek = identity.week
-    await load(week: identity.week, showLoading: true, identity: identity)
+    switch mode {
+    case .week:
+      guard selectedWeek != identity.week else { return }
+      selectedWeek = identity.week
+      referenceDay = identity.day
+      await load(week: identity.week, showLoading: true, identity: identity)
+    case .month:
+      guard selectedMonth != identity.month else { return }
+      selectedMonth = identity.month
+      referenceDay = identity.day
+      await load(month: identity.month, showLoading: true, identity: identity)
+    }
+  }
+
+  func showPreviousMonth() async {
+    guard let selectedMonth, let target = selectedMonth.previous else { return }
+    self.selectedMonth = target
+    referenceDay = target.clamped(day: referenceDay?.day ?? 1)
+    await load(month: target, showLoading: true)
+  }
+
+  func showNextMonth() async {
+    let identity = currentIdentity()
+    guard let selectedMonth, selectedMonth < identity.month else { return }
+    let target = min(selectedMonth.next, identity.month)
+    self.selectedMonth = target
+    referenceDay = target.clamped(day: referenceDay?.day ?? 1)
+    await load(month: target, showLoading: true, identity: identity)
+  }
+
+  func showWeek(_ week: WeekID) async {
+    mode = .week
+    selectedWeek = week
+    referenceDay = week.monday.addingDays(3)
+    await load(week: week, showLoading: true)
   }
 
   func refreshFromForeground() async {
@@ -192,11 +318,20 @@ final class HistoryModel: ObservableObject {
 
   func refreshFromBoundaryEvent() async {
     let identity = currentIdentity()
-    let wasFollowingCurrent = selectedWeek == knownCurrentWeek
-    let target = wasFollowingCurrent ? identity.week : (selectedWeek ?? identity.week)
-    selectedWeek = target
+    let wasFollowingCurrentWeek = selectedWeek == knownCurrentWeek
+    let wasFollowingCurrentMonth = selectedMonth == knownCurrentMonth
     knownCurrentWeek = identity.week
-    await load(week: target, showLoading: false, identity: identity)
+    knownCurrentMonth = identity.month
+    switch mode {
+    case .week:
+      let target = wasFollowingCurrentWeek ? identity.week : (selectedWeek ?? identity.week)
+      selectedWeek = target
+      await load(week: target, showLoading: false, identity: identity)
+    case .month:
+      let target = wasFollowingCurrentMonth ? identity.month : (selectedMonth ?? identity.month)
+      selectedMonth = target
+      await load(month: target, showLoading: false, identity: identity)
+    }
   }
 
   func refreshAfterRevision() async {
@@ -206,32 +341,56 @@ final class HistoryModel: ObservableObject {
   private func load(
     week: WeekID,
     showLoading: Bool,
-    identity suppliedIdentity: (day: LocalDay, week: WeekID)? = nil
+    identity suppliedIdentity: (day: LocalDay, week: WeekID, month: MonthID)? = nil
   ) async {
     generation += 1
     let requestGeneration = generation
     if showLoading { state = .loading }
     let identity = suppliedIdentity ?? currentIdentity()
     knownCurrentWeek = identity.week
+    knownCurrentMonth = identity.month
     do {
       let snapshot = try await repository.weekSnapshot(for: week)
       guard requestGeneration == generation else { return }
       state = .ready(
-        WeekHistoryPresentation(
-          snapshot: snapshot,
-          week: week,
-          currentDay: identity.day,
-          currentWeek: identity.week))
+        .week(
+          WeekHistoryPresentation(
+            snapshot: snapshot,
+            week: week,
+            currentDay: identity.day,
+            currentWeek: identity.week)))
     } catch {
       guard requestGeneration == generation else { return }
       state = .failed
     }
   }
 
-  private func currentIdentity() -> (day: LocalDay, week: WeekID) {
+  private func load(
+    month: MonthID,
+    showLoading: Bool,
+    identity suppliedIdentity: (day: LocalDay, week: WeekID, month: MonthID)? = nil
+  ) async {
+    generation += 1
+    let requestGeneration = generation
+    if showLoading { state = .loading }
+    let identity = suppliedIdentity ?? currentIdentity()
+    knownCurrentWeek = identity.week
+    knownCurrentMonth = identity.month
+    do {
+      let snapshot = try await repository.monthSnapshot(for: month)
+      guard requestGeneration == generation, mode == .month else { return }
+      state = .ready(.month(MonthHistoryPresentation(snapshot: snapshot, currentDay: identity.day)))
+    } catch {
+      guard requestGeneration == generation else { return }
+      state = .failed
+    }
+  }
+
+  private func currentIdentity() -> (day: LocalDay, week: WeekID, month: MonthID) {
     let instant = date.now()
     let calendar = GregorianCalendarService(timeZone: timeZone.current())
-    return (calendar.localDay(containing: instant), calendar.week(containing: instant))
+    let day = calendar.localDay(containing: instant)
+    return (day, calendar.week(containing: instant), MonthID(containing: day))
   }
 }
 
@@ -276,7 +435,10 @@ struct HistoryView: View {
           }
           .accessibilityIdentifier("history-failed")
         case .ready(let presentation):
-          historyContent(presentation)
+          switch presentation {
+          case .week(let week): historyContent(week)
+          case .month(let month): monthContent(month)
+          }
         }
       }
       .navigationTitle("History")
@@ -303,6 +465,7 @@ struct HistoryView: View {
   private func historyContent(_ presentation: WeekHistoryPresentation) -> some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 24) {
+        periodPicker
         weekNavigation(presentation)
         dayHeader(presentation.days)
         goalsSection(presentation)
@@ -311,6 +474,181 @@ struct HistoryView: View {
       .padding()
     }
     .accessibilityIdentifier("history-week-ready")
+  }
+
+  private var periodPicker: some View {
+    Picker(
+      "History period",
+      selection: Binding(
+        get: { model.mode },
+        set: { value in Task { await model.selectMode(value) } }
+      )
+    ) {
+      ForEach(HistoryMode.allCases, id: \.self) { mode in
+        Text(mode.rawValue).tag(mode)
+      }
+    }
+    .pickerStyle(.segmented)
+    .accessibilityIdentifier("history-period-picker")
+  }
+
+  private func monthContent(_ presentation: MonthHistoryPresentation) -> some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 24) {
+        periodPicker
+        monthNavigation(presentation)
+        monthGoalsSection(presentation)
+        monthIndulgenceSection(presentation)
+      }
+      .padding()
+    }
+    .accessibilityIdentifier("history-month-ready")
+  }
+
+  private func monthNavigation(_ presentation: MonthHistoryPresentation) -> some View {
+    VStack(spacing: 12) {
+      Text(monthName(presentation.month))
+        .font(.title2.bold())
+        .frame(maxWidth: .infinity)
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("history-month-range")
+      HStack {
+        Button("Previous month", systemImage: "chevron.left") {
+          Task { await model.showPreviousMonth() }
+        }
+        .labelStyle(.iconOnly)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel("Previous month")
+        .accessibilityIdentifier("history-previous-month")
+        Spacer()
+        Button("Today") { Task { await model.showToday() } }
+          .disabled(presentation.isCurrentMonth)
+          .accessibilityIdentifier("history-today")
+        Spacer()
+        Button("Next month", systemImage: "chevron.right") {
+          Task { await model.showNextMonth() }
+        }
+        .labelStyle(.iconOnly)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel("Next month")
+        .disabled(presentation.isCurrentMonth)
+        .accessibilityIdentifier("history-next-month")
+      }
+      .buttonStyle(.bordered)
+    }
+  }
+
+  private func monthGoalsSection(_ presentation: MonthHistoryPresentation) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Goals by week").font(.title2.bold()).accessibilityAddTraits(.isHeader)
+      ForEach(presentation.weeks) { week in
+        VStack(alignment: .leading, spacing: 10) {
+          Button {
+            Task { await model.showWeek(week.week) }
+          } label: {
+            HStack {
+              Text(weekRange(week.week)).font(.headline)
+              Spacer()
+              Image(systemName: "chevron.right").accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityHint("Shows week details")
+          .accessibilityIdentifier("history-month-week-\(week.week.canonicalKey)")
+          monthDayHeader(week, month: presentation.month)
+          if week.presentation.goals.isEmpty {
+            Text("No Goals were planned for this week.")
+              .font(.subheadline).foregroundStyle(.secondary)
+          } else {
+            ForEach(week.presentation.goals) { row in
+              VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                  Text(row.name).lineLimit(2)
+                  Spacer()
+                  Text("\(row.completed) of \(row.target)")
+                    .monospacedDigit().foregroundStyle(.secondary)
+                }
+                monthGoalStates(row, week: week, month: presentation.month)
+              }
+              .accessibilityElement(children: .ignore)
+              .accessibilityLabel(monthGoalLabel(row, week: week, month: presentation.month))
+            }
+          }
+        }
+        .padding()
+        .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+      }
+    }
+  }
+
+  private func monthGoalStates(
+    _ row: WeekHistoryGoalRow, week: MonthHistoryWeek, month: MonthID
+  ) -> some View {
+    ViewThatFits(in: .horizontal) {
+      LazyVGrid(columns: gridColumns, spacing: 6) {
+        ForEach(row.days.indices, id: \.self) { index in
+          Image(systemName: symbol(for: row.days[index]))
+            .foregroundStyle(week.inMonth[index] ? Color.primary : Color.secondary)
+            .frame(maxWidth: .infinity, minHeight: 28)
+            .overlay {
+              if !week.inMonth[index] {
+                RoundedRectangle(cornerRadius: 5).stroke(style: StrokeStyle(dash: [3, 2]))
+              }
+            }
+        }
+      }
+      Text(monthGoalLabel(row, week: week, month: month))
+        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
+    .accessibilityHidden(true)
+  }
+
+  private func monthDayHeader(_ week: MonthHistoryWeek, month: MonthID) -> some View {
+    ViewThatFits(in: .horizontal) {
+      LazyVGrid(columns: gridColumns, spacing: 6) {
+        ForEach(week.presentation.days.indices, id: \.self) { index in
+          let day = week.presentation.days[index].day
+          VStack(spacing: 2) {
+            Text(WeekHistoryPresentation.shortWeekdayNames[index]).font(.caption2)
+            Text("\(day.day)").font(.caption.bold())
+            if !week.inMonth[index] { Text("Out").font(.caption2.bold()) }
+          }
+          .foregroundStyle(week.inMonth[index] ? Color.primary : Color.secondary)
+          .padding(.vertical, 3)
+          .frame(maxWidth: .infinity)
+          .overlay {
+            if !week.inMonth[index] {
+              RoundedRectangle(cornerRadius: 6).stroke(style: StrokeStyle(dash: [3, 2]))
+            }
+          }
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(dayLabel(day, in: month))
+        }
+      }
+      Text(week.presentation.days.map { dayLabel($0.day, in: month) }.joined(separator: "; "))
+        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
+  }
+
+  private func monthIndulgenceSection(_ presentation: MonthHistoryPresentation) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("iIndulged this month").font(.title2.bold()).accessibilityAddTraits(.isHeader)
+      ForEach(presentation.indulgences) { row in
+        HStack {
+          Label(row.name, systemImage: row.symbolName)
+          if row.isArchived { Text("Archived").font(.caption).foregroundStyle(.secondary) }
+          Spacer()
+          Text("\(row.total)").monospacedDigit()
+        }
+        .padding()
+        .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.accessibilityLabel)
+        .accessibilityIdentifier("history-month-indulgence-\(row.id.uuidString)")
+      }
+    }
   }
 
   private func weekNavigation(_ presentation: WeekHistoryPresentation) -> some View {
@@ -531,5 +869,31 @@ struct HistoryView: View {
     let date = Calendar(identifier: .gregorian).date(
       from: DateComponents(year: day.year, month: day.month, day: day.day))!
     return date.formatted(.dateTime.month(.abbreviated).day().year())
+  }
+
+  private func monthName(_ month: MonthID) -> String {
+    let date = Calendar(identifier: .gregorian).date(
+      from: DateComponents(year: month.year, month: month.month, day: 1))!
+    return date.formatted(.dateTime.month(.wide).year())
+  }
+
+  private func dayLabel(_ day: LocalDay, in month: MonthID) -> String {
+    let base = fullDate(day)
+    return month.contains(day) ? base : "\(base), outside \(monthName(month))"
+  }
+
+  private func monthGoalLabel(
+    _ row: WeekHistoryGoalRow, week: MonthHistoryWeek, month: MonthID
+  ) -> String {
+    let details = zip(week.presentation.days, row.days).map { day, state in
+      let status: String =
+        switch state {
+        case .inactive: "inactive"
+        case .noCheckoff(let future): future ? "not yet" : "no checkoff"
+        case .complete: "complete"
+        }
+      return "\(dayLabel(day.day, in: month)), \(status)"
+    }.joined(separator: "; ")
+    return "\(row.name), \(row.completed) of \(row.target). \(details)"
   }
 }

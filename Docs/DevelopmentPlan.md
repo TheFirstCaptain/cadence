@@ -58,7 +58,7 @@
 ### 4. History
 
 - **F-005A Week History foundation:** Complete. Current/prior Week aggregation, period navigation, plain Goal counts, neutral iIndulged distribution, lifecycle refresh, independent reviews, local/hosted 115-test gates, and the manual accessibility matrix passed.
-- **F-005B Month History:** Next. Clarify cross-month Week-to-Month mapping and the accessible, non-color-only treatment of days outside the selected month, then build one atomic calendar-Month summary with complete overlapping weekly Goal rows and Week drill-down.
+- **F-005B Month History:** Validating. Majority-of-week mapping, atomic calendar-Month aggregation, complete overlapping weekly Goal rows, explicit outside-month accessibility, and Week drill-down pass the local 121-test full gate; manual and hosted closeout remain.
 - **F-005C Day History detail:** Clarify and build read-only daily Goal/checkoff and timestamped occurrence inspection.
 - **F-005D Historical corrections:** Clarify and build guarded past checkoff changes, exact occurrence deletion/temporary Undo, rollback, and immediate summary invalidation.
 

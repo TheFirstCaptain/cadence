@@ -296,6 +296,33 @@ actor CadenceStore:
   }
 
   func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
+    try makeWeekSnapshot(week)
+  }
+
+  func monthSnapshot(for month: MonthID) throws -> MonthActivitySnapshot {
+    let weeks = try month.overlappingWeeks.map {
+      MonthWeekActivitySnapshot(week: $0, activity: try makeWeekSnapshot($0))
+    }
+    let occurrences = try occurrenceRecords()
+      .map(occurrenceSnapshot)
+      .filter { month.contains($0.localDay) }
+      .sorted { $0.instant < $1.instant }
+    let occurrenceCategoryIDs = Set(occurrences.map(\.categoryID))
+    let allCategories = try categoryRecords().map(categorySnapshot)
+    guard occurrenceCategoryIDs.isSubset(of: Set(allCategories.map(\.id))) else {
+      throw RepositoryError.corruptedData
+    }
+    let categories =
+      allCategories
+      .filter { $0.isActive || occurrenceCategoryIDs.contains($0.id) }
+      .sorted {
+        ($0.sortOrder, $0.name, $0.id.uuidString) < ($1.sortOrder, $1.name, $1.id.uuidString)
+      }
+    return MonthActivitySnapshot(
+      month: month, weeks: weeks, categories: categories, occurrences: occurrences)
+  }
+
+  private func makeWeekSnapshot(_ week: WeekID) throws -> WeekActivitySnapshot {
     let plan = try plan(for: week)
     let goalIDs = Set(plan?.goals.map(\.id) ?? [])
     let dayKeys = Set((0..<7).compactMap { week.monday.addingDays($0)?.canonicalKey })

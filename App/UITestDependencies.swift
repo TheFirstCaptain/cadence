@@ -179,6 +179,10 @@ private actor FailingHistoryRepository: HistoryRepository {
     throw RepositoryError.persistenceFailure
   }
 
+  func monthSnapshot(for month: MonthID) throws -> MonthActivitySnapshot {
+    throw RepositoryError.persistenceFailure
+  }
+
   func dayHistory(for day: LocalDay) async throws -> DayActivitySnapshot {
     try await base.dayHistory(for: day)
   }

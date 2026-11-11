@@ -112,6 +112,18 @@ nonisolated struct WeekActivitySnapshot: Hashable, Sendable {
   let occurrences: [IndulgenceOccurrenceSnapshot]
 }
 
+nonisolated struct MonthWeekActivitySnapshot: Hashable, Sendable {
+  let week: WeekID
+  let activity: WeekActivitySnapshot
+}
+
+nonisolated struct MonthActivitySnapshot: Hashable, Sendable {
+  let month: MonthID
+  let weeks: [MonthWeekActivitySnapshot]
+  let categories: [IndulgenceCategorySnapshot]
+  let occurrences: [IndulgenceOccurrenceSnapshot]
+}
+
 nonisolated enum RepositoryError: Error, Equatable, Sendable {
   case duplicatePlan
   case planNotFound

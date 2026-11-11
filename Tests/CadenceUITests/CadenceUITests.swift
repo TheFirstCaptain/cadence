@@ -54,6 +54,26 @@ final class CadenceUITests: XCTestCase {
   }
 
   @MainActor
+  func testHistorySwitchesToMonthAndDrillsIntoACompleteWeek() throws {
+    let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
+    waitForReadyState(in: app)
+    primaryDestination("History", in: app).tap()
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+
+    app.buttons["Month"].tap()
+    XCTAssertTrue(element("history-month-range", in: app).waitForExistence(timeout: 5))
+    XCTAssertFalse(element("history-next-month", in: app).isEnabled)
+    XCTAssertTrue(app.staticTexts["iIndulged this month"].exists)
+
+    let week = app.buttons.matching(
+      NSPredicate(format: "identifier BEGINSWITH %@", "history-month-week-")
+    ).firstMatch
+    XCTAssertTrue(week.waitForExistence(timeout: 5))
+    week.tap()
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+  }
+
+  @MainActor
   func testPopulatedHistoryShowsNeutralWeeklyPlacementAndNavigation() throws {
     let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
     waitForReadyState(in: app)
