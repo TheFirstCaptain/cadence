@@ -51,6 +51,47 @@ struct CadenceStoreTests {
   }
 
   @Test
+  func monthHistoryUsesPreservedLocalDayAndArchivedCategoryOnlyInsideBoundary() async throws {
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let store = CadenceStore(modelContainer: container, dependencies: dependencies())
+    try await store.prepare()
+
+    let context = ModelContext(container)
+    let category = IndulgenceCategoryRecord(
+      id: UUID(), name: "Tea", normalizedName: "tea", symbolName: "cup.and.saucer",
+      sortOrder: 20, isBuiltIn: false, isActive: false,
+      createdAt: now, updatedAt: now)
+    let insideID = UUID()
+    let outsideID = UUID()
+    context.insert(category)
+    context.insert(
+      IndulgenceOccurrenceRecord(
+        id: insideID, categoryID: category.id,
+        instant: ISO8601DateFormatter().date(from: "2026-11-01T01:00:00Z")!,
+        localDay: LocalDay(year: 2026, month: 10, day: 31)!,
+        timeZoneIdentifier: "America/New_York", utcOffsetSeconds: -14_400,
+        createdAt: now, updatedAt: now, category: category))
+    context.insert(
+      IndulgenceOccurrenceRecord(
+        id: outsideID, categoryID: category.id,
+        instant: ISO8601DateFormatter().date(from: "2026-10-31T23:00:00Z")!,
+        localDay: LocalDay(year: 2026, month: 11, day: 1)!,
+        timeZoneIdentifier: "Europe/Paris", utcOffsetSeconds: 3_600,
+        createdAt: now, updatedAt: now, category: category))
+    try context.save()
+
+    let october = try await store.monthSnapshot(for: MonthID(year: 2026, month: 10)!)
+    let november = try await store.monthSnapshot(for: MonthID(year: 2026, month: 11)!)
+    let december = try await store.monthSnapshot(for: MonthID(year: 2026, month: 12)!)
+
+    #expect(october.occurrences.map(\.id) == [insideID])
+    #expect(october.categories.contains { $0.id == category.id && !$0.isActive })
+    #expect(november.occurrences.map(\.id) == [outsideID])
+    #expect(november.categories.contains { $0.id == category.id && !$0.isActive })
+    #expect(!december.categories.contains { $0.id == category.id })
+  }
+
+  @Test
   func myDayReadIsAtomicWeekBoundedOrderedAndUsesCurrentOfferingSemantics() async throws {
     let store = try makeStore()
     try await store.prepare()
