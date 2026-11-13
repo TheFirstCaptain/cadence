@@ -15,7 +15,7 @@ concurrency:
 jobs:
   quality:
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       CADENCE_DESTINATION: platform=iOS Simulator,name=iPhone Duo,OS=latest
       CADENCE_KEEP_ARTIFACTS: 1
