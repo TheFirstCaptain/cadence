@@ -570,7 +570,7 @@ struct HistoryView: View {
                   Text("\(row.completed) of \(row.target)")
                     .monospacedDigit().foregroundStyle(.secondary)
                 }
-                monthGoalStates(row, week: week, month: presentation.month)
+                monthGoalStates(row, week: week)
               }
               .accessibilityElement(children: .ignore)
               .accessibilityLabel(monthGoalLabel(row, week: week, month: presentation.month))
@@ -583,53 +583,45 @@ struct HistoryView: View {
     }
   }
 
-  private func monthGoalStates(
-    _ row: WeekHistoryGoalRow, week: MonthHistoryWeek, month: MonthID
-  ) -> some View {
-    ViewThatFits(in: .horizontal) {
-      LazyVGrid(columns: gridColumns, spacing: 6) {
-        ForEach(row.days.indices, id: \.self) { index in
-          Image(systemName: symbol(for: row.days[index]))
-            .foregroundStyle(week.inMonth[index] ? Color.primary : Color.secondary)
-            .frame(maxWidth: .infinity, minHeight: 28)
-            .overlay {
-              if !week.inMonth[index] {
-                RoundedRectangle(cornerRadius: 5).stroke(style: StrokeStyle(dash: [3, 2]))
-              }
+  private func monthGoalStates(_ row: WeekHistoryGoalRow, week: MonthHistoryWeek) -> some View {
+    LazyVGrid(columns: gridColumns, spacing: 6) {
+      ForEach(row.days.indices, id: \.self) { index in
+        Image(systemName: symbol(for: row.days[index]))
+          .foregroundStyle(week.inMonth[index] ? Color.primary : Color.secondary)
+          .frame(maxWidth: .infinity, minHeight: 28)
+          .overlay {
+            if !week.inMonth[index] {
+              RoundedRectangle(cornerRadius: 5).stroke(style: StrokeStyle(dash: [3, 2]))
             }
-        }
+          }
       }
-      Text(monthGoalLabel(row, week: week, month: month))
-        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
+    .dynamicTypeSize(.xSmall ... .xxxLarge)
     .accessibilityHidden(true)
   }
 
   private func monthDayHeader(_ week: MonthHistoryWeek, month: MonthID) -> some View {
-    ViewThatFits(in: .horizontal) {
-      LazyVGrid(columns: gridColumns, spacing: 6) {
-        ForEach(week.presentation.days.indices, id: \.self) { index in
-          let day = week.presentation.days[index].day
-          VStack(spacing: 2) {
-            Text(WeekHistoryPresentation.shortWeekdayNames[index]).font(.caption2)
-            Text("\(day.day)").font(.caption.bold())
-            if !week.inMonth[index] { Text("Out").font(.caption2.bold()) }
-          }
-          .foregroundStyle(week.inMonth[index] ? Color.primary : Color.secondary)
-          .padding(.vertical, 3)
-          .frame(maxWidth: .infinity)
-          .overlay {
-            if !week.inMonth[index] {
-              RoundedRectangle(cornerRadius: 6).stroke(style: StrokeStyle(dash: [3, 2]))
-            }
-          }
-          .accessibilityElement(children: .ignore)
-          .accessibilityLabel(dayLabel(day, in: month))
+    LazyVGrid(columns: gridColumns, spacing: 6) {
+      ForEach(week.presentation.days.indices, id: \.self) { index in
+        let day = week.presentation.days[index].day
+        VStack(spacing: 2) {
+          Text(WeekHistoryPresentation.shortWeekdayNames[index]).font(.caption2)
+          Text("\(day.day)").font(.caption.bold())
+          if !week.inMonth[index] { Text("Out").font(.caption2.bold()) }
         }
+        .foregroundStyle(week.inMonth[index] ? Color.primary : Color.secondary)
+        .padding(.vertical, 3)
+        .frame(maxWidth: .infinity)
+        .overlay {
+          if !week.inMonth[index] {
+            RoundedRectangle(cornerRadius: 6).stroke(style: StrokeStyle(dash: [3, 2]))
+          }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(dayLabel(day, in: month))
       }
-      Text(week.presentation.days.map { dayLabel($0.day, in: month) }.joined(separator: "; "))
-        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
+    .dynamicTypeSize(.xSmall ... .xxxLarge)
   }
 
   private func monthIndulgenceSection(_ presentation: MonthHistoryPresentation) -> some View {
