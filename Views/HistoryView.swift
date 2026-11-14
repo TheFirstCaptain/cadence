@@ -10,6 +10,7 @@ nonisolated enum WeekHistoryGoalDayState: Hashable, Sendable {
 nonisolated struct WeekHistoryDay: Hashable, Sendable, Identifiable {
   let day: LocalDay
   let isToday: Bool
+  let isFuture: Bool
 
   var id: LocalDay { day }
 }
@@ -72,7 +73,9 @@ nonisolated struct WeekHistoryPresentation: Hashable, Sendable {
     self.week = week
     self.currentWeek = currentWeek
     let weekDays = (0..<7).compactMap { week.monday.addingDays($0) }
-    days = weekDays.map { WeekHistoryDay(day: $0, isToday: $0 == currentDay) }
+    days = weekDays.map {
+      WeekHistoryDay(day: $0, isToday: $0 == currentDay, isFuture: $0 > currentDay)
+    }
 
     let checkoffsByGoal = Dictionary(grouping: snapshot.checkoffs) { $0.plannedGoalID }
     goals = (snapshot.plan?.goals ?? [])
@@ -176,6 +179,140 @@ nonisolated struct MonthHistoryPresentation: Hashable, Sendable {
 nonisolated enum HistoryPeriodPresentation: Equatable, Sendable {
   case week(WeekHistoryPresentation)
   case month(MonthHistoryPresentation)
+}
+
+nonisolated struct DayHistoryGoalRow: Hashable, Sendable, Identifiable {
+  let id: UUID
+  let name: String
+  let isComplete: Bool
+
+  var status: String { isComplete ? "Completed" : "Not checked off" }
+  var accessibilityLabel: String { "\(name), \(status.lowercased())" }
+}
+
+nonisolated struct DayHistoryOccurrenceRow: Hashable, Sendable, Identifiable {
+  let id: UUID
+  let name: String
+  let symbolName: String
+  let isArchived: Bool
+  let recordedTime: String
+
+  var accessibilityLabel: String {
+    "\(name)\(isArchived ? ", archived" : ""), recorded at \(recordedTime)"
+  }
+}
+
+nonisolated struct RecordedHistoryTimeFormatter: Sendable {
+  let locale: Locale
+
+  init(locale: Locale = .autoupdatingCurrent) {
+    self.locale = locale
+  }
+
+  func string(for occurrence: IndulgenceOccurrenceSnapshot) throws -> String {
+    let zone: TimeZone
+    let qualifier: String
+    if let storedZone = TimeZone(identifier: occurrence.timeZoneIdentifier) {
+      zone = storedZone
+      qualifier = storedZone.abbreviation(for: occurrence.instant) ?? occurrence.timeZoneIdentifier
+    } else if let fallback = TimeZone(secondsFromGMT: occurrence.utcOffsetSeconds) {
+      zone = fallback
+      qualifier = Self.offsetLabel(seconds: occurrence.utcOffsetSeconds)
+    } else {
+      throw RepositoryError.corruptedData
+    }
+    let formatter = DateFormatter()
+    formatter.locale = locale
+    formatter.timeZone = zone
+    formatter.setLocalizedDateFormatFromTemplate("jmm")
+    return "\(formatter.string(from: occurrence.instant)) \(qualifier)"
+  }
+
+  private static func offsetLabel(seconds: Int) -> String {
+    let sign = seconds < 0 ? "−" : "+"
+    let magnitude = abs(seconds)
+    return String(format: "UTC%@%02d:%02d", sign, magnitude / 3_600, (magnitude % 3_600) / 60)
+  }
+}
+
+nonisolated struct DayHistoryPresentation: Hashable, Sendable {
+  let day: LocalDay
+  let goals: [DayHistoryGoalRow]
+  let occurrences: [DayHistoryOccurrenceRow]
+
+  init(
+    snapshot: DayActivitySnapshot,
+    formatter: RecordedHistoryTimeFormatter = RecordedHistoryTimeFormatter()
+  ) throws {
+    day = snapshot.day
+    let checkoffsByGoal = Dictionary(grouping: snapshot.checkoffs, by: \.plannedGoalID)
+    guard checkoffsByGoal.values.allSatisfy({ $0.count <= 1 }) else {
+      throw RepositoryError.corruptedData
+    }
+    goals = snapshot.goals
+      .sorted {
+        ($0.sortOrder, $0.name, $0.id.uuidString) < ($1.sortOrder, $1.name, $1.id.uuidString)
+      }
+      .map {
+        DayHistoryGoalRow(
+          id: $0.id, name: $0.name, isComplete: checkoffsByGoal[$0.id]?.isEmpty == false)
+      }
+
+    var categories: [UUID: IndulgenceCategorySnapshot] = [:]
+    for category in snapshot.categories {
+      guard categories.updateValue(category, forKey: category.id) == nil else {
+        throw RepositoryError.corruptedData
+      }
+    }
+    occurrences = try snapshot.occurrences
+      .sorted { ($0.instant, $0.id.uuidString) < ($1.instant, $1.id.uuidString) }
+      .map { occurrence in
+        guard let category = categories[occurrence.categoryID] else {
+          throw RepositoryError.corruptedData
+        }
+        return DayHistoryOccurrenceRow(
+          id: occurrence.id,
+          name: category.name,
+          symbolName: category.symbolName,
+          isArchived: !category.isActive,
+          recordedTime: try formatter.string(for: occurrence))
+      }
+  }
+}
+
+@MainActor
+final class DayHistoryModel: ObservableObject {
+  enum State: Equatable {
+    case loading
+    case ready(DayHistoryPresentation)
+    case failed
+  }
+
+  @Published private(set) var state: State = .loading
+
+  let day: LocalDay
+  private let repository: any HistoryRepository
+  private var generation = 0
+
+  init(day: LocalDay, repository: any HistoryRepository) {
+    self.day = day
+    self.repository = repository
+  }
+
+  func load() async {
+    generation += 1
+    let requestGeneration = generation
+    state = .loading
+    do {
+      let snapshot = try await repository.dayHistory(for: day)
+      guard requestGeneration == generation else { return }
+      guard snapshot.day == day else { throw RepositoryError.corruptedData }
+      state = .ready(try DayHistoryPresentation(snapshot: snapshot))
+    } catch {
+      guard requestGeneration == generation else { return }
+      state = .failed
+    }
+  }
 }
 
 nonisolated enum HistoryMode: String, CaseIterable, Sendable {
@@ -394,11 +531,129 @@ final class HistoryModel: ObservableObject {
   }
 }
 
+struct DayHistoryView: View {
+  @StateObject private var model: DayHistoryModel
+
+  init(day: LocalDay, repository: any HistoryRepository) {
+    _model = StateObject(wrappedValue: DayHistoryModel(day: day, repository: repository))
+  }
+
+  var body: some View {
+    Group {
+      switch model.state {
+      case .loading:
+        ProgressView("Loading Day")
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .accessibilityIdentifier("history-day-loading")
+      case .failed:
+        ContentUnavailableView {
+          Label("This day couldn’t be refreshed", systemImage: "arrow.clockwise.circle")
+        } description: {
+          Text("Please try again when you’re ready.")
+        } actions: {
+          Button("Try Again") { Task { await model.load() } }
+        }
+        .accessibilityIdentifier("history-day-failed")
+      case .ready(let presentation):
+        dayContent(presentation)
+      }
+    }
+    .navigationTitle(fullDate(model.day))
+    .navigationBarTitleDisplayMode(.inline)
+    .task { await model.load() }
+  }
+
+  private func dayContent(_ presentation: DayHistoryPresentation) -> some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 24) {
+        goalsSection(presentation.goals)
+        occurrencesSection(presentation.occurrences)
+      }
+      .padding()
+    }
+    .accessibilityIdentifier("history-day-ready")
+  }
+
+  private func goalsSection(_ goals: [DayHistoryGoalRow]) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Goals").font(.title2.bold()).accessibilityAddTraits(.isHeader)
+      if goals.isEmpty {
+        Text("No Goals were planned for this day.")
+          .foregroundStyle(.secondary)
+          .accessibilityIdentifier("history-day-goals-empty")
+      } else {
+        ForEach(goals) { goal in
+          HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: goal.isComplete ? "checkmark.circle.fill" : "circle")
+              .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+              Text(goal.name).font(.headline)
+              Text(goal.status).font(.subheadline).foregroundStyle(.secondary)
+            }
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding()
+          .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(goal.accessibilityLabel)
+          .accessibilityIdentifier("history-day-goal-\(goal.id.uuidString)")
+        }
+      }
+    }
+  }
+
+  private func occurrencesSection(_ occurrences: [DayHistoryOccurrenceRow]) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("iIndulged").font(.title2.bold()).accessibilityAddTraits(.isHeader)
+      if occurrences.isEmpty {
+        Text("No iIndulged entries were recorded.")
+          .foregroundStyle(.secondary)
+          .accessibilityIdentifier("history-day-occurrences-empty")
+      } else {
+        ForEach(occurrences) { occurrence in
+          ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+              occurrenceTitle(occurrence)
+              Spacer()
+              Text(occurrence.recordedTime).foregroundStyle(.secondary)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+              occurrenceTitle(occurrence)
+              Text(occurrence.recordedTime).foregroundStyle(.secondary)
+            }
+          }
+          .padding()
+          .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(occurrence.accessibilityLabel)
+          .accessibilityIdentifier("history-day-occurrence-\(occurrence.id.uuidString)")
+        }
+      }
+    }
+  }
+
+  private func occurrenceTitle(_ occurrence: DayHistoryOccurrenceRow) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 6) {
+      Label(occurrence.name, systemImage: occurrence.symbolName).font(.headline)
+      if occurrence.isArchived {
+        Text("Archived").font(.caption).foregroundStyle(.secondary)
+      }
+    }
+  }
+
+  private func fullDate(_ day: LocalDay) -> String {
+    let date = Calendar(identifier: .gregorian).date(
+      from: DateComponents(year: day.year, month: day.month, day: day.day))!
+    return date.formatted(.dateTime.weekday(.wide).month(.wide).day().year())
+  }
+}
+
 struct HistoryView: View {
   @Environment(\.scenePhase) private var scenePhase
   @StateObject private var model: HistoryModel
 
   private let refreshEvents: LocalCalendarRefreshEvents
+  private let repository: any HistoryRepository
   private let planningRevision: Int
   private let historyRevision: Int
 
@@ -412,6 +667,7 @@ struct HistoryView: View {
   ) {
     _model = StateObject(
       wrappedValue: HistoryModel(repository: repository, date: date, timeZone: timeZone))
+    self.repository = repository
     self.refreshEvents = refreshEvents
     self.planningRevision = planningRevision
     self.historyRevision = historyRevision
@@ -694,22 +950,26 @@ struct HistoryView: View {
     LazyVGrid(columns: gridColumns, spacing: 8) {
       ForEach(days.indices, id: \.self) { index in
         let value = days[index]
-        VStack(spacing: 2) {
-          Text(WeekHistoryPresentation.shortWeekdayNames[index])
-            .font(.caption2)
-          Text("\(value.day.day)")
-            .font(.caption.bold())
-        }
-        .frame(maxWidth: .infinity, minHeight: 40)
-        .overlay {
-          if value.isToday {
-            RoundedRectangle(cornerRadius: 8).stroke(lineWidth: 2)
+        NavigationLink {
+          DayHistoryView(day: value.day, repository: repository)
+        } label: {
+          VStack(spacing: 2) {
+            Text(WeekHistoryPresentation.shortWeekdayNames[index]).font(.caption2)
+            Text("\(value.day.day)").font(.caption.bold())
+          }
+          .frame(maxWidth: .infinity, minHeight: 44)
+          .contentShape(Rectangle())
+          .overlay {
+            if value.isToday { RoundedRectangle(cornerRadius: 8).stroke(lineWidth: 2) }
           }
         }
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
+        .disabled(value.isFuture)
         .accessibilityLabel(
-          "\(WeekHistoryPresentation.fullWeekdayNames[index]), \(fullDate(value.day))\(value.isToday ? ", Today" : "")"
+          "\(WeekHistoryPresentation.fullWeekdayNames[index]), \(fullDate(value.day))\(value.isToday ? ", Today" : "")\(value.isFuture ? ", not available yet" : "")"
         )
+        .accessibilityHint(value.isFuture ? "Not available yet" : "Shows day details")
+        .accessibilityIdentifier("history-day-\(value.day.canonicalKey)")
       }
     }
   }

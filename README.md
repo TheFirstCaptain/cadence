@@ -17,9 +17,9 @@ The app is intended to be private and local-first. Punitive streaks, leaderboard
 
 ## Current status
 
-Cadence has completed its development foundation, My Day, My Goals, and the F-005A/F-005B Week and Month History foundations. Its three-tab product skeleton—My Day, My Goals, and History—builds on a versioned local data model, repository boundary, deterministic date services, and a shared local/hosted quality gate.
+Cadence has completed its development foundation, My Day, My Goals, and the F-005A/F-005B Week and Month History foundations. F-005C read-only Day History detail is implemented and in final validation. Its three-tab product skeleton—My Day, My Goals, and History—builds on a versioned local data model, repository boundary, deterministic date services, and a shared local/hosted quality gate.
 
-[F-002: iOS Project Foundation](Docs/features/F-002.md), [F-003: My Day](Docs/features/F-003.md), [F-004: My Goals](Docs/features/F-004.md), [F-005A: Week History Foundation](Docs/features/F-005A.md), and [F-005B: Month History](Docs/features/F-005B.md) are complete. Day History detail and historical corrections remain queued for clarification and implementation. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
+[F-002: iOS Project Foundation](Docs/features/F-002.md), [F-003: My Day](Docs/features/F-003.md), [F-004: My Goals](Docs/features/F-004.md), [F-005A: Week History Foundation](Docs/features/F-005A.md), and [F-005B: Month History](Docs/features/F-005B.md) are complete. [F-005C: Day History Detail](Docs/features/F-005C.md) has passed independent review and the local full gate; its hands-on accessibility matrix and immutable hosted evidence remain. Historical corrections remain queued as F-005D. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
 
 ## Repository layout
 

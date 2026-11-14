@@ -37,6 +37,9 @@ struct CadenceApp: App {
     if arguments.contains("--ui-test-history-read-failure") {
       return { try AppDependencies.uiTest(.historyReadFailure) }
     }
+    if arguments.contains("--ui-test-history-day-read-failure") {
+      return { try AppDependencies.uiTest(.historyDayReadFailure) }
+    }
     return AppDependencies.live
   }
 

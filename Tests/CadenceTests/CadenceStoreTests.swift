@@ -92,6 +92,59 @@ struct CadenceStoreTests {
   }
 
   @Test
+  func dayHistoryRejectsMissingCategoryAndOrdersEqualInstantsByIdentity() async throws {
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let store = CadenceStore(modelContainer: container, dependencies: dependencies())
+    let context = ModelContext(container)
+    let day = LocalDay(year: 2026, month: 10, day: 28)!
+    let category = IndulgenceCategoryRecord(
+      id: UUID(), name: "Tea", normalizedName: "tea", symbolName: "cup.and.saucer",
+      sortOrder: 10, isBuiltIn: false, isActive: false, createdAt: now, updatedAt: now)
+    let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    let secondID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+    context.insert(category)
+    for id in [secondID, firstID] {
+      context.insert(
+        IndulgenceOccurrenceRecord(
+          id: id, categoryID: category.id, instant: now, localDay: day,
+          timeZoneIdentifier: newYork.identifier, utcOffsetSeconds: -14_400,
+          createdAt: now, updatedAt: now, category: category))
+    }
+    try context.save()
+
+    #expect(try await store.dayHistory(for: day).occurrences.map(\.id) == [firstID, secondID])
+
+    let orphanID = UUID()
+    context.insert(
+      IndulgenceOccurrenceRecord(
+        id: UUID(), categoryID: orphanID, instant: now, localDay: day,
+        timeZoneIdentifier: newYork.identifier, utcOffsetSeconds: -14_400,
+        createdAt: now, updatedAt: now, category: nil))
+    try context.save()
+    await expectError(.corruptedData) { _ = try await store.dayHistory(for: day) }
+  }
+
+  @Test
+  func dayHistoryRejectsDuplicateCategoryIdentity() async throws {
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let store = CadenceStore(modelContainer: container, dependencies: dependencies())
+    let context = ModelContext(container)
+    let duplicateID = UUID()
+    for name in ["Tea", "Coffee"] {
+      context.insert(
+        IndulgenceCategoryRecord(
+          id: duplicateID, name: name, normalizedName: name.lowercased(),
+          symbolName: "cup.and.saucer", sortOrder: 10, isBuiltIn: false, isActive: true,
+          createdAt: now, updatedAt: now))
+    }
+    try context.save()
+
+    await expectError(.corruptedData) {
+      _ = try await store.dayHistory(for: LocalDay(year: 2026, month: 10, day: 28)!)
+    }
+  }
+
+  @Test
   func myDayReadIsAtomicWeekBoundedOrderedAndUsesCurrentOfferingSemantics() async throws {
     let store = try makeStore()
     try await store.prepare()

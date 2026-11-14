@@ -350,6 +350,130 @@ struct HistoryModelTests {
     #expect(await repository.requestedMonths == [month, month, month])
   }
 
+  @Test
+  func dayPresentationKeepsHistoricalOrderStateAndArchivedOccurrences() throws {
+    let week = WeekID(monday: monday)!
+    let completed = goal(
+      name: "Walk", frequency: .daily, order: 0, week: week, activeFrom: monday)
+    let unchecked = goal(
+      name: "Read", frequency: .weekly, order: 0, week: week, activeFrom: monday)
+    let archived = category(name: "Desserts", order: 0, active: false)
+    let snapshot = DayActivitySnapshot(
+      day: monday, goals: [completed, unchecked],
+      checkoffs: [checkoff(goalID: completed.id, day: monday)], categories: [archived],
+      occurrences: [occurrence(categoryID: archived.id, day: monday)])
+
+    let presentation = try DayHistoryPresentation(
+      snapshot: snapshot,
+      formatter: RecordedHistoryTimeFormatter(locale: Locale(identifier: "en_US_POSIX")))
+
+    #expect(presentation.goals.map(\.name) == ["Read", "Walk"])
+    #expect(presentation.goals.map(\.isComplete) == [false, true])
+    #expect(presentation.occurrences.first?.name == "Desserts")
+    #expect(presentation.occurrences.first?.isArchived == true)
+    #expect(presentation.occurrences.first?.recordedTime.contains("GMT") == true)
+  }
+
+  @Test
+  func recordedTimeUsesStoredZoneAndExplicitFixedOffsetFallback() throws {
+    let categoryID = UUID()
+    let instant = ISO8601DateFormatter().date(from: "2026-11-01T05:30:00Z")!
+    let storedZone = IndulgenceOccurrenceSnapshot(
+      id: UUID(), categoryID: categoryID, instant: instant, localDay: monday,
+      timeZoneIdentifier: "America/New_York", utcOffsetSeconds: -14_400,
+      createdAt: instant, updatedAt: instant)
+    let fallback = IndulgenceOccurrenceSnapshot(
+      id: UUID(), categoryID: categoryID, instant: instant, localDay: monday,
+      timeZoneIdentifier: "Missing/Zone", utcOffsetSeconds: -12_600,
+      createdAt: instant, updatedAt: instant)
+    let formatter = RecordedHistoryTimeFormatter(locale: Locale(identifier: "en_US_POSIX"))
+
+    #expect(try formatter.string(for: storedZone).contains("EDT"))
+    #expect(try formatter.string(for: fallback).contains("UTC−03:30"))
+
+    let winterInstant = ISO8601DateFormatter().date(from: "2026-12-01T05:30:00Z")!
+    let winter = IndulgenceOccurrenceSnapshot(
+      id: UUID(), categoryID: categoryID, instant: winterInstant, localDay: monday,
+      timeZoneIdentifier: "America/New_York", utcOffsetSeconds: -18_000,
+      createdAt: winterInstant, updatedAt: winterInstant)
+    let positiveFallback = IndulgenceOccurrenceSnapshot(
+      id: UUID(), categoryID: categoryID, instant: instant, localDay: monday,
+      timeZoneIdentifier: "Missing/Zone", utcOffsetSeconds: 20_700,
+      createdAt: instant, updatedAt: instant)
+    let invalidFallback = IndulgenceOccurrenceSnapshot(
+      id: UUID(), categoryID: categoryID, instant: instant, localDay: monday,
+      timeZoneIdentifier: "Missing/Zone", utcOffsetSeconds: 100_000,
+      createdAt: instant, updatedAt: instant)
+    #expect(try formatter.string(for: winter).contains("EST"))
+    #expect(try formatter.string(for: positiveFallback).contains("UTC+05:45"))
+    #expect(throws: RepositoryError.corruptedData) {
+      try formatter.string(for: invalidFallback)
+    }
+  }
+
+  @Test
+  func dayPresentationRejectsMissingCategoryAndDuplicateCheckoff() throws {
+    let week = WeekID(monday: monday)!
+    let goal = goal(
+      name: "Walk", frequency: .daily, order: 0, week: week, activeFrom: monday)
+    let missingCategory = DayActivitySnapshot(
+      day: monday, goals: [], checkoffs: [], categories: [],
+      occurrences: [occurrence(categoryID: UUID(), day: monday)])
+    #expect(throws: RepositoryError.corruptedData) {
+      try DayHistoryPresentation(snapshot: missingCategory)
+    }
+    let duplicateCheckoff = DayActivitySnapshot(
+      day: monday, goals: [goal],
+      checkoffs: [checkoff(goalID: goal.id, day: monday), checkoff(goalID: goal.id, day: monday)],
+      categories: [], occurrences: [])
+    #expect(throws: RepositoryError.corruptedData) {
+      try DayHistoryPresentation(snapshot: duplicateCheckoff)
+    }
+    let category = category(name: "Candy", order: 0, active: true)
+    let duplicateCategory = DayActivitySnapshot(
+      day: monday, goals: [], checkoffs: [], categories: [category, category], occurrences: [])
+    #expect(throws: RepositoryError.corruptedData) {
+      try DayHistoryPresentation(snapshot: duplicateCategory)
+    }
+  }
+
+  @Test
+  func dayModelKeepsSelectedIdentityAndRetriesFailure() async throws {
+    let repository = StubDayHistoryRepository(failuresRemaining: 1)
+    let model = DayHistoryModel(day: monday, repository: repository)
+
+    await model.load()
+    #expect(model.state == .failed)
+    await model.load()
+    guard case .ready(let presentation) = model.state else {
+      Issue.record("Expected ready Day History state")
+      return
+    }
+    #expect(presentation.day == monday)
+    #expect(await repository.requestedDays == [monday, monday])
+  }
+
+  @Test
+  func newerDayLoadWinsAndIdentityMismatchFailsSafely() async throws {
+    let racingRepository = RacingDayHistoryRepository()
+    let model = DayHistoryModel(day: monday, repository: racingRepository)
+
+    let first = Task { await model.load() }
+    try await Task.sleep(for: .milliseconds(20))
+    await model.load()
+    await first.value
+    guard case .ready(let presentation) = model.state else {
+      Issue.record("Expected ready Day History state")
+      return
+    }
+    #expect(presentation.occurrences.count == 1)
+
+    let wrongDayRepository = WrongDayHistoryRepository()
+    let wrongDayModel = DayHistoryModel(day: monday, repository: wrongDayRepository)
+    await wrongDayModel.load()
+    #expect(wrongDayModel.state == .failed)
+  }
+
   private func makeModel(repository: any HistoryRepository, day: LocalDay) -> HistoryModel {
     let date = instant(for: day)
     let timeZone = utc
@@ -542,4 +666,82 @@ private actor StubHistoryRepository: HistoryRepository {
   func removeOccurrence(id: UUID) throws -> IndulgenceOccurrenceSnapshot? {
     nil
   }
+}
+
+private actor StubDayHistoryRepository: HistoryRepository {
+  private(set) var requestedDays: [LocalDay] = []
+  private var failuresRemaining: Int
+
+  init(failuresRemaining: Int = 0) {
+    self.failuresRemaining = failuresRemaining
+  }
+
+  func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
+    WeekActivitySnapshot(plan: nil, checkoffs: [], categories: [], occurrences: [])
+  }
+
+  func monthSnapshot(for month: MonthID) throws -> MonthActivitySnapshot {
+    MonthActivitySnapshot(month: month, weeks: [], categories: [], occurrences: [])
+  }
+
+  func dayHistory(for day: LocalDay) throws -> DayActivitySnapshot {
+    requestedDays.append(day)
+    if failuresRemaining > 0 {
+      failuresRemaining -= 1
+      throw HistoryTestError.expected
+    }
+    return DayActivitySnapshot(day: day, goals: [], checkoffs: [], categories: [], occurrences: [])
+  }
+
+  func removeOccurrence(id: UUID) throws -> IndulgenceOccurrenceSnapshot? { nil }
+}
+
+private actor RacingDayHistoryRepository: HistoryRepository {
+  private var requestCount = 0
+
+  func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
+    WeekActivitySnapshot(plan: nil, checkoffs: [], categories: [], occurrences: [])
+  }
+
+  func monthSnapshot(for month: MonthID) throws -> MonthActivitySnapshot {
+    MonthActivitySnapshot(month: month, weeks: [], categories: [], occurrences: [])
+  }
+
+  func dayHistory(for day: LocalDay) async throws -> DayActivitySnapshot {
+    requestCount += 1
+    let request = requestCount
+    if request == 1 { try await Task.sleep(for: .milliseconds(100)) }
+    guard request > 1 else {
+      return DayActivitySnapshot(
+        day: day, goals: [], checkoffs: [], categories: [], occurrences: [])
+    }
+    let category = IndulgenceCategorySnapshot(
+      id: UUID(), name: "Candy", symbolName: "circle", sortOrder: 0, isBuiltIn: false,
+      isActive: true)
+    let occurrence = IndulgenceOccurrenceSnapshot(
+      id: UUID(), categoryID: category.id, instant: .distantPast, localDay: day,
+      timeZoneIdentifier: "UTC", utcOffsetSeconds: 0, createdAt: .distantPast,
+      updatedAt: .distantPast)
+    return DayActivitySnapshot(
+      day: day, goals: [], checkoffs: [], categories: [category], occurrences: [occurrence])
+  }
+
+  func removeOccurrence(id: UUID) throws -> IndulgenceOccurrenceSnapshot? { nil }
+}
+
+private actor WrongDayHistoryRepository: HistoryRepository {
+  func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
+    WeekActivitySnapshot(plan: nil, checkoffs: [], categories: [], occurrences: [])
+  }
+
+  func monthSnapshot(for month: MonthID) throws -> MonthActivitySnapshot {
+    MonthActivitySnapshot(month: month, weeks: [], categories: [], occurrences: [])
+  }
+
+  func dayHistory(for day: LocalDay) throws -> DayActivitySnapshot {
+    DayActivitySnapshot(
+      day: day.addingDays(1)!, goals: [], checkoffs: [], categories: [], occurrences: [])
+  }
+
+  func removeOccurrence(id: UUID) throws -> IndulgenceOccurrenceSnapshot? { nil }
 }

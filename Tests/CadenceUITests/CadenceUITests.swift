@@ -65,11 +65,13 @@ final class CadenceUITests: XCTestCase {
     XCTAssertFalse(element("history-next-month", in: app).isEnabled)
     XCTAssertTrue(app.staticTexts["iIndulged this month"].exists)
 
-    let week = app.buttons.matching(
-      NSPredicate(format: "identifier BEGINSWITH %@", "history-month-week-")
-    ).firstMatch
+    let week = element("history-month-week-2026-10-26", in: app)
     XCTAssertTrue(week.waitForExistence(timeout: 5))
     week.tap()
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+    element("history-day-2026-10-28", in: app).tap()
+    XCTAssertTrue(element("history-day-ready", in: app).waitForExistence(timeout: 5))
+    app.navigationBars.buttons.element(boundBy: 0).tap()
     XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
   }
 
@@ -80,6 +82,9 @@ final class CadenceUITests: XCTestCase {
     primaryDestination("History", in: app).tap()
 
     XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+    let futureDay = element("history-day-2026-10-29", in: app)
+    XCTAssertFalse(futureDay.isEnabled)
+    XCTAssertTrue(futureDay.label.contains("not available yet"))
     XCTAssertTrue(
       app.descendants(matching: .any)
         .matching(NSPredicate(format: "label BEGINSWITH %@", "Walk, 1 of 5."))
@@ -106,6 +111,54 @@ final class CadenceUITests: XCTestCase {
     XCTAssertFalse(
       app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "SwiftData"))
         .firstMatch.exists)
+  }
+
+  @MainActor
+  func testHistoryDayDetailIsReadOnlyAndReturnsToSelectedWeek() throws {
+    let app = launchApplication(arguments: ["--ui-test-my-day-populated"])
+    waitForReadyState(in: app)
+    primaryDestination("History", in: app).tap()
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+
+    element("history-day-2026-10-28", in: app).tap()
+    XCTAssertTrue(element("history-day-ready", in: app).waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Completed"].exists)
+    XCTAssertTrue(app.staticTexts["Not checked off"].exists)
+    XCTAssertTrue(
+      app.descendants(matching: .any)
+        .matching(NSPredicate(format: "identifier BEGINSWITH %@", "history-day-occurrence-"))
+        .firstMatch.exists)
+    XCTAssertFalse(app.buttons["Delete"].exists)
+    XCTAssertFalse(app.buttons["Undo"].exists)
+
+    app.navigationBars.buttons.element(boundBy: 0).tap()
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+  }
+
+  @MainActor
+  func testEmptyHistoryDayShowsBothSectionEmptyStates() throws {
+    let app = launchApplication(arguments: ["--ui-test-my-day-empty"])
+    waitForReadyState(in: app)
+    primaryDestination("History", in: app).tap()
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+
+    element("history-day-2026-10-28", in: app).tap()
+    XCTAssertTrue(element("history-day-ready", in: app).waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["No Goals were planned for this day."].exists)
+    XCTAssertTrue(app.staticTexts["No iIndulged entries were recorded."].exists)
+  }
+
+  @MainActor
+  func testHistoryDayFailureRetriesWithoutReplacingWeek() throws {
+    let app = launchApplication(arguments: ["--ui-test-history-day-read-failure"])
+    waitForReadyState(in: app)
+    primaryDestination("History", in: app).tap()
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+
+    element("history-day-2026-10-28", in: app).tap()
+    XCTAssertTrue(app.staticTexts["This day couldn’t be refreshed"].waitForExistence(timeout: 5))
+    app.buttons["Try Again"].tap()
+    XCTAssertTrue(element("history-day-ready", in: app).waitForExistence(timeout: 5))
   }
 
   @MainActor

@@ -11,6 +11,7 @@ nonisolated enum UITestMyDayMode: Equatable, Sendable {
   case myGoalsReorderFailure
   case myGoalsRemovalFailure
   case historyReadFailure
+  case historyDayReadFailure
 }
 
 extension AppDependencies {
@@ -30,7 +31,8 @@ extension AppDependencies {
       case .readFailure: FailingMyDayRepository(base: store, failsReads: true)
       case .mutationFailure: FailingMyDayRepository(base: store, failsReads: false)
       case .empty, .populated, .myGoalsReadFailure, .myGoalsMutationFailure, .manyGoals,
-        .myGoalsReorderFailure, .myGoalsRemovalFailure, .historyReadFailure:
+        .myGoalsReorderFailure, .myGoalsRemovalFailure, .historyReadFailure,
+        .historyDayReadFailure:
         store
       }
     let planning: any PlanningRepository =
@@ -45,7 +47,11 @@ extension AppDependencies {
       default: store
       }
     let history: any HistoryRepository =
-      mode == .historyReadFailure ? FailingHistoryRepository(base: store) : store
+      switch mode {
+      case .historyReadFailure: FailingHistoryRepository(base: store)
+      case .historyDayReadFailure: FailFirstDayHistoryRepository(base: store)
+      default: store
+      }
     return AppDependencies(
       planning: planning,
       dailyTracking: dailyTracking,
@@ -134,7 +140,7 @@ private actor UITestMyDayPreparer: ApplicationPreparing {
     guard
       [
         UITestMyDayMode.populated, .mutationFailure, .manyGoals, .myGoalsReorderFailure,
-        .myGoalsRemovalFailure,
+        .myGoalsRemovalFailure, .historyDayReadFailure,
       ].contains(mode)
     else { return }
     let calendar = GregorianCalendarService(timeZone: timeZone)
@@ -185,6 +191,35 @@ private actor FailingHistoryRepository: HistoryRepository {
 
   func dayHistory(for day: LocalDay) async throws -> DayActivitySnapshot {
     try await base.dayHistory(for: day)
+  }
+
+  func removeOccurrence(id: UUID) async throws -> IndulgenceOccurrenceSnapshot? {
+    try await base.removeOccurrence(id: id)
+  }
+}
+
+private actor FailFirstDayHistoryRepository: HistoryRepository {
+  let base: CadenceStore
+  private var hasFailed = false
+
+  init(base: CadenceStore) {
+    self.base = base
+  }
+
+  func weekSnapshot(for week: WeekID) async throws -> WeekActivitySnapshot {
+    try await base.weekSnapshot(for: week)
+  }
+
+  func monthSnapshot(for month: MonthID) async throws -> MonthActivitySnapshot {
+    try await base.monthSnapshot(for: month)
+  }
+
+  func dayHistory(for day: LocalDay) async throws -> DayActivitySnapshot {
+    if !hasFailed {
+      hasFailed = true
+      throw RepositoryError.persistenceFailure
+    }
+    return try await base.dayHistory(for: day)
   }
 
   func removeOccurrence(id: UUID) async throws -> IndulgenceOccurrenceSnapshot? {

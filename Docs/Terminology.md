@@ -21,7 +21,7 @@ Use these terms consistently in product copy, code, tests, and documentation.
 | This Week group | My Day group containing Weekly and Custom Goals with completed-of-target progress. |
 | Week view | History view for one complete Monday-through-Sunday week. |
 | Month view | History view for one calendar month, with full weekly Goal rows and calendar-month iIndulged totals. |
-| Day detail | History view showing editable Goal checkoffs and timestamped iIndulged occurrences for one date. |
+| Day detail | History view showing Goal checkoff states and timestamped iIndulged occurrences for one date. Historical correction controls are added separately. |
 | History | Neutral Week and Month review of plans, checkoffs, and indulgence occurrences. |
 
 Avoid `failure`, `broken streak`, `bad food`, `cheat score`, `compliance`, and other language that moralizes behavior.
