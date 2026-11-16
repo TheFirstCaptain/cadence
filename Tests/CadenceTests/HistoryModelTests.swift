@@ -4,6 +4,28 @@ import Testing
 
 @testable import Cadence
 
+private protocol TestHistoryRepository: HistoryRepository {}
+
+extension TestHistoryRepository {
+  func recordHistoricalCheckoff(goalID: UUID, on day: LocalDay) async throws
+    -> DayActivitySnapshot
+  { throw RepositoryError.persistenceFailure }
+
+  func removeHistoricalCheckoff(goalID: UUID, on day: LocalDay) async throws
+    -> DayActivitySnapshot
+  { throw RepositoryError.persistenceFailure }
+
+  func removeHistoricalOccurrence(id: UUID, on day: LocalDay) async throws
+    -> HistoricalOccurrenceDeletion
+  { throw RepositoryError.persistenceFailure }
+
+  func restoreHistoricalOccurrence(_ token: HistoricalOccurrenceUndoToken) async throws
+    -> DayActivitySnapshot
+  { throw RepositoryError.persistenceFailure }
+
+  func abandonHistoricalOccurrenceRestore(_ token: HistoricalOccurrenceUndoToken) async {}
+}
+
 @MainActor
 struct HistoryModelTests {
   private let utc = TimeZone(secondsFromGMT: 0)!
@@ -474,6 +496,78 @@ struct HistoryModelTests {
     #expect(wrongDayModel.state == .failed)
   }
 
+  @Test
+  func dayCorrectionDeletesAndRestoresExactOccurrenceAndInvalidatesHistory() async throws {
+    let category = category(name: "Candy", order: 0, active: true)
+    let entry = occurrence(categoryID: category.id, day: monday)
+    let repository = MutableDayHistoryRepository(
+      snapshot: DayActivitySnapshot(
+        day: monday, goals: [], checkoffs: [], categories: [category], occurrences: [entry]))
+    let notifications = Mutex(0)
+    let current = monday.addingDays(1)!
+    let currentInstant = instant(for: current)
+    let model = DayHistoryModel(
+      day: monday,
+      repository: repository,
+      date: DateProvider { currentInstant },
+      timeZone: CurrentTimeZoneProvider { self.utc },
+      sleep: { duration in try await Task.sleep(for: duration) },
+      onHistoryChanged: { notifications.withLock { $0 += 1 } })
+
+    await model.load()
+    guard case .ready(let presentation) = model.state,
+      let row = presentation.occurrences.first
+    else {
+      Issue.record("Expected a ready occurrence row")
+      return
+    }
+    await model.deleteOccurrence(row)
+    #expect(model.pendingUndo != nil)
+    #expect(notifications.withLock { $0 } == 1)
+    guard case .ready(let deleted) = model.state else {
+      Issue.record("Expected ready state after deletion")
+      return
+    }
+    #expect(deleted.occurrences.isEmpty)
+
+    await model.undoOccurrenceRemoval()
+    #expect(model.pendingUndo == nil)
+    #expect(notifications.withLock { $0 } == 2)
+    guard case .ready(let restored) = model.state else {
+      Issue.record("Expected ready state after Undo")
+      return
+    }
+    #expect(restored.occurrences.map(\.id) == [entry.id])
+  }
+
+  @Test
+  func dayOccurrenceUndoExpiresAndAbandonsStoreCapabilityDeterministically() async throws {
+    let category = category(name: "Candy", order: 0, active: true)
+    let entry = occurrence(categoryID: category.id, day: monday)
+    let repository = MutableDayHistoryRepository(
+      snapshot: DayActivitySnapshot(
+        day: monday, goals: [], checkoffs: [], categories: [category], occurrences: [entry]))
+    let currentInstant = instant(for: monday.addingDays(1)!)
+    let model = DayHistoryModel(
+      day: monday,
+      repository: repository,
+      date: DateProvider { currentInstant },
+      timeZone: CurrentTimeZoneProvider { self.utc },
+      sleep: { _ in })
+
+    await model.load()
+    guard case .ready(let presentation) = model.state,
+      let row = presentation.occurrences.first
+    else {
+      Issue.record("Expected a ready occurrence row")
+      return
+    }
+    await model.deleteOccurrence(row)
+    for _ in 0..<10 where model.pendingUndo != nil { await Task.yield() }
+    #expect(model.pendingUndo == nil)
+    #expect(await repository.abandonCount == 1)
+  }
+
   private func makeModel(repository: any HistoryRepository, day: LocalDay) -> HistoryModel {
     let date = instant(for: day)
     let timeZone = utc
@@ -578,7 +672,7 @@ struct HistoryModelTests {
   }
 }
 
-private actor DelayedHistoryRepository: HistoryRepository {
+private actor DelayedHistoryRepository: TestHistoryRepository {
   let slowWeek: WeekID
 
   init(slowWeek: WeekID) {
@@ -603,7 +697,7 @@ private actor DelayedHistoryRepository: HistoryRepository {
   }
 }
 
-private actor DelayedMonthHistoryRepository: HistoryRepository {
+private actor DelayedMonthHistoryRepository: TestHistoryRepository {
   func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
     WeekActivitySnapshot(plan: nil, checkoffs: [], categories: [], occurrences: [])
   }
@@ -626,7 +720,7 @@ private enum HistoryTestError: Error {
   case expected
 }
 
-private actor StubHistoryRepository: HistoryRepository {
+private actor StubHistoryRepository: TestHistoryRepository {
   private(set) var requestedWeeks: [WeekID] = []
   private(set) var requestedMonths: [MonthID] = []
   private var failuresRemaining: Int
@@ -668,7 +762,7 @@ private actor StubHistoryRepository: HistoryRepository {
   }
 }
 
-private actor StubDayHistoryRepository: HistoryRepository {
+private actor StubDayHistoryRepository: TestHistoryRepository {
   private(set) var requestedDays: [LocalDay] = []
   private var failuresRemaining: Int
 
@@ -696,7 +790,7 @@ private actor StubDayHistoryRepository: HistoryRepository {
   func removeOccurrence(id: UUID) throws -> IndulgenceOccurrenceSnapshot? { nil }
 }
 
-private actor RacingDayHistoryRepository: HistoryRepository {
+private actor RacingDayHistoryRepository: TestHistoryRepository {
   private var requestCount = 0
 
   func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
@@ -729,7 +823,7 @@ private actor RacingDayHistoryRepository: HistoryRepository {
   func removeOccurrence(id: UUID) throws -> IndulgenceOccurrenceSnapshot? { nil }
 }
 
-private actor WrongDayHistoryRepository: HistoryRepository {
+private actor WrongDayHistoryRepository: TestHistoryRepository {
   func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
     WeekActivitySnapshot(plan: nil, checkoffs: [], categories: [], occurrences: [])
   }
@@ -744,4 +838,67 @@ private actor WrongDayHistoryRepository: HistoryRepository {
   }
 
   func removeOccurrence(id: UUID) throws -> IndulgenceOccurrenceSnapshot? { nil }
+}
+
+private actor MutableDayHistoryRepository: HistoryRepository {
+  private var snapshot: DayActivitySnapshot
+  private var pendingOccurrence: IndulgenceOccurrenceSnapshot?
+  private(set) var abandonCount = 0
+
+  init(snapshot: DayActivitySnapshot) { self.snapshot = snapshot }
+
+  func weekSnapshot(for week: WeekID) throws -> WeekActivitySnapshot {
+    WeekActivitySnapshot(plan: nil, checkoffs: [], categories: [], occurrences: [])
+  }
+
+  func monthSnapshot(for month: MonthID) throws -> MonthActivitySnapshot {
+    MonthActivitySnapshot(month: month, weeks: [], categories: [], occurrences: [])
+  }
+
+  func dayHistory(for day: LocalDay) throws -> DayActivitySnapshot { snapshot }
+
+  func recordHistoricalCheckoff(goalID: UUID, on day: LocalDay) throws
+    -> DayActivitySnapshot
+  { snapshot }
+
+  func removeHistoricalCheckoff(goalID: UUID, on day: LocalDay) throws
+    -> DayActivitySnapshot
+  { snapshot }
+
+  func removeHistoricalOccurrence(id: UUID, on day: LocalDay) throws
+    -> HistoricalOccurrenceDeletion
+  {
+    guard let occurrence = snapshot.occurrences.first(where: { $0.id == id }) else {
+      throw RepositoryError.corruptedData
+    }
+    snapshot = DayActivitySnapshot(
+      day: snapshot.day,
+      goals: snapshot.goals,
+      checkoffs: snapshot.checkoffs,
+      categories: snapshot.categories,
+      occurrences: snapshot.occurrences.filter { $0.id != id })
+    pendingOccurrence = occurrence
+    return HistoricalOccurrenceDeletion(
+      snapshot: snapshot,
+      undoToken: HistoricalOccurrenceUndoToken(id: UUID(), day: day))
+  }
+
+  func restoreHistoricalOccurrence(_ token: HistoricalOccurrenceUndoToken) throws
+    -> DayActivitySnapshot
+  {
+    guard let occurrence = pendingOccurrence else { throw RepositoryError.corruptedData }
+    snapshot = DayActivitySnapshot(
+      day: snapshot.day,
+      goals: snapshot.goals,
+      checkoffs: snapshot.checkoffs,
+      categories: snapshot.categories,
+      occurrences: snapshot.occurrences + [occurrence])
+    pendingOccurrence = nil
+    return snapshot
+  }
+
+  func abandonHistoricalOccurrenceRestore(_ token: HistoricalOccurrenceUndoToken) {
+    pendingOccurrence = nil
+    abandonCount += 1
+  }
 }

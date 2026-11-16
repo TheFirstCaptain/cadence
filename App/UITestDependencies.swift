@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 nonisolated enum UITestMyDayMode: Equatable, Sendable {
   case empty
@@ -12,6 +13,12 @@ nonisolated enum UITestMyDayMode: Equatable, Sendable {
   case myGoalsRemovalFailure
   case historyReadFailure
   case historyDayReadFailure
+  case historyCorrections
+}
+
+private final class UITestClock: Sendable {
+  let value: Mutex<Date>
+  init(_ date: Date) { value = Mutex(date) }
 }
 
 extension AppDependencies {
@@ -19,20 +26,22 @@ extension AppDependencies {
   static func uiTest(_ mode: UITestMyDayMode) throws -> AppDependencies {
     let instant = ISO8601DateFormatter().date(from: "2026-10-28T16:00:00Z")!
     let zone = TimeZone(identifier: "America/New_York")!
-    let date = DateProvider { instant }
+    let clock = UITestClock(instant)
+    let date = DateProvider { clock.value.withLock { $0 } }
     let timeZone = CurrentTimeZoneProvider { zone }
     let uuid = UUIDProvider.live
     let store = CadenceStore(
       modelContainer: try CadenceModelContainerFactory.makeInMemoryContainer(),
       dependencies: CadenceStoreDependencies(date: date, timeZone: timeZone, uuid: uuid))
-    let preparer = UITestMyDayPreparer(store: store, mode: mode, instant: instant, timeZone: zone)
+    let preparer = UITestMyDayPreparer(
+      store: store, mode: mode, instant: instant, timeZone: zone, clock: clock)
     let dailyTracking: any DailyTrackingRepository =
       switch mode {
       case .readFailure: FailingMyDayRepository(base: store, failsReads: true)
       case .mutationFailure: FailingMyDayRepository(base: store, failsReads: false)
       case .empty, .populated, .myGoalsReadFailure, .myGoalsMutationFailure, .manyGoals,
         .myGoalsReorderFailure, .myGoalsRemovalFailure, .historyReadFailure,
-        .historyDayReadFailure:
+        .historyDayReadFailure, .historyCorrections:
         store
       }
     let planning: any PlanningRepository =
@@ -127,12 +136,20 @@ private actor UITestMyDayPreparer: ApplicationPreparing {
   let mode: UITestMyDayMode
   let instant: Date
   let timeZone: TimeZone
+  let clock: UITestClock
 
-  init(store: CadenceStore, mode: UITestMyDayMode, instant: Date, timeZone: TimeZone) {
+  init(
+    store: CadenceStore,
+    mode: UITestMyDayMode,
+    instant: Date,
+    timeZone: TimeZone,
+    clock: UITestClock
+  ) {
     self.store = store
     self.mode = mode
     self.instant = instant
     self.timeZone = timeZone
+    self.clock = clock
   }
 
   func prepare() async throws {
@@ -140,7 +157,7 @@ private actor UITestMyDayPreparer: ApplicationPreparing {
     guard
       [
         UITestMyDayMode.populated, .mutationFailure, .manyGoals, .myGoalsReorderFailure,
-        .myGoalsRemovalFailure, .historyDayReadFailure,
+        .myGoalsRemovalFailure, .historyDayReadFailure, .historyCorrections,
       ].contains(mode)
     else { return }
     let calendar = GregorianCalendarService(timeZone: timeZone)
@@ -171,6 +188,11 @@ private actor UITestMyDayPreparer: ApplicationPreparing {
     _ = try await store.recordCheckoff(goalID: custom.id, on: day.addingDays(1)!)
     _ = try await store.recordIndulgence(categoryID: BuiltInIndulgenceCategories.all[2].id)
     _ = try await store.recordIndulgence(categoryID: BuiltInIndulgenceCategories.all[2].id)
+    if mode == .historyCorrections {
+      clock.value.withLock {
+        $0 = ISO8601DateFormatter().date(from: "2026-11-04T16:00:00Z")!
+      }
+    }
   }
 }
 
@@ -193,9 +215,26 @@ private actor FailingHistoryRepository: HistoryRepository {
     try await base.dayHistory(for: day)
   }
 
-  func removeOccurrence(id: UUID) async throws -> IndulgenceOccurrenceSnapshot? {
-    try await base.removeOccurrence(id: id)
+  func recordHistoricalCheckoff(goalID: UUID, on day: LocalDay) async throws
+    -> DayActivitySnapshot
+  { try await base.recordHistoricalCheckoff(goalID: goalID, on: day) }
+
+  func removeHistoricalCheckoff(goalID: UUID, on day: LocalDay) async throws
+    -> DayActivitySnapshot
+  { try await base.removeHistoricalCheckoff(goalID: goalID, on: day) }
+
+  func removeHistoricalOccurrence(id: UUID, on day: LocalDay) async throws
+    -> HistoricalOccurrenceDeletion
+  { try await base.removeHistoricalOccurrence(id: id, on: day) }
+
+  func restoreHistoricalOccurrence(_ token: HistoricalOccurrenceUndoToken) async throws
+    -> DayActivitySnapshot
+  { try await base.restoreHistoricalOccurrence(token) }
+
+  func abandonHistoricalOccurrenceRestore(_ token: HistoricalOccurrenceUndoToken) async {
+    await base.abandonHistoricalOccurrenceRestore(token)
   }
+
 }
 
 private actor FailFirstDayHistoryRepository: HistoryRepository {
@@ -222,9 +261,26 @@ private actor FailFirstDayHistoryRepository: HistoryRepository {
     return try await base.dayHistory(for: day)
   }
 
-  func removeOccurrence(id: UUID) async throws -> IndulgenceOccurrenceSnapshot? {
-    try await base.removeOccurrence(id: id)
+  func recordHistoricalCheckoff(goalID: UUID, on day: LocalDay) async throws
+    -> DayActivitySnapshot
+  { try await base.recordHistoricalCheckoff(goalID: goalID, on: day) }
+
+  func removeHistoricalCheckoff(goalID: UUID, on day: LocalDay) async throws
+    -> DayActivitySnapshot
+  { try await base.removeHistoricalCheckoff(goalID: goalID, on: day) }
+
+  func removeHistoricalOccurrence(id: UUID, on day: LocalDay) async throws
+    -> HistoricalOccurrenceDeletion
+  { try await base.removeHistoricalOccurrence(id: id, on: day) }
+
+  func restoreHistoricalOccurrence(_ token: HistoricalOccurrenceUndoToken) async throws
+    -> DayActivitySnapshot
+  { try await base.restoreHistoricalOccurrence(token) }
+
+  func abandonHistoricalOccurrenceRestore(_ token: HistoricalOccurrenceUndoToken) async {
+    await base.abandonHistoricalOccurrenceRestore(token)
   }
+
 }
 
 private actor FailingMyDayRepository: DailyTrackingRepository {

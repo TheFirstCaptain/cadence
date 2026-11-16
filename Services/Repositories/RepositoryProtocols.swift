@@ -30,5 +30,13 @@ nonisolated protocol HistoryRepository: Sendable {
   func weekSnapshot(for week: WeekID) async throws -> WeekActivitySnapshot
   func monthSnapshot(for month: MonthID) async throws -> MonthActivitySnapshot
   func dayHistory(for day: LocalDay) async throws -> DayActivitySnapshot
-  func removeOccurrence(id: UUID) async throws -> IndulgenceOccurrenceSnapshot?
+  func recordHistoricalCheckoff(goalID: UUID, on day: LocalDay) async throws
+    -> DayActivitySnapshot
+  func removeHistoricalCheckoff(goalID: UUID, on day: LocalDay) async throws
+    -> DayActivitySnapshot
+  func removeHistoricalOccurrence(id: UUID, on day: LocalDay) async throws
+    -> HistoricalOccurrenceDeletion
+  func restoreHistoricalOccurrence(_ token: HistoricalOccurrenceUndoToken) async throws
+    -> DayActivitySnapshot
+  func abandonHistoricalOccurrenceRestore(_ token: HistoricalOccurrenceUndoToken) async
 }

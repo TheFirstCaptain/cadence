@@ -19,11 +19,152 @@ struct CadenceStoreTests {
     requireSendable(GoalCheckoffSnapshot.self)
     requireSendable(IndulgenceCategorySnapshot.self)
     requireSendable(IndulgenceOccurrenceSnapshot.self)
+    requireSendable(HistoricalOccurrenceUndoToken.self)
+    requireSendable(HistoricalOccurrenceDeletion.self)
     requireSendable(DayActivitySnapshot.self)
     requireSendable(MyDaySnapshot.self)
     requireSendable(WeekActivitySnapshot.self)
     requireSendable(MonthActivitySnapshot.self)
     requireSendable(RepositoryError.self)
+  }
+
+  @Test
+  func historicalCorrectionsUsePlanNoonAndRestoreExactOccurrence() async throws {
+    let clock = Mutex(now)
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let store = CadenceStore(
+      modelContainer: container,
+      dependencies: CadenceStoreDependencies(
+        date: DateProvider { clock.withLock { $0 } },
+        timeZone: CurrentTimeZoneProvider { self.newYork },
+        uuid: .live))
+    try await store.prepare()
+    _ = try await store.ensurePlan(for: week)
+    let goal = try await store.addGoal(
+      to: week, configuration: GoalConfiguration(name: "Walk", frequency: .daily))
+    let day = LocalDay(year: 2026, month: 10, day: 28)!
+    let occurrence = try await store.recordIndulgence(
+      categoryID: BuiltInIndulgenceCategories.all[2].id)
+
+    clock.withLock { $0 = ISO8601DateFormatter().date(from: "2026-11-04T16:00:00Z")! }
+    let added = try await store.recordHistoricalCheckoff(goalID: goal.id, on: day)
+    let checkoff = try #require(added.checkoffs.first)
+    let components = Calendar(identifier: .gregorian).dateComponents(
+      in: newYork, from: checkoff.instant)
+    #expect(components.hour == 12)
+    #expect(checkoff.localDay == day)
+    #expect(checkoff.timeZoneIdentifier == newYork.identifier)
+    #expect(checkoff.utcOffsetSeconds == -14_400)
+
+    let removedCheckoff = try await store.removeHistoricalCheckoff(goalID: goal.id, on: day)
+    #expect(removedCheckoff.checkoffs.isEmpty)
+
+    let deletion = try await store.removeHistoricalOccurrence(id: occurrence.id, on: day)
+    #expect(deletion.snapshot.occurrences.isEmpty)
+    #expect(deletion.undoToken.day == day)
+    let restored = try await store.restoreHistoricalOccurrence(deletion.undoToken)
+    #expect(restored.occurrences == [occurrence])
+    await expectError(.corruptedData) {
+      try await store.restoreHistoricalOccurrence(deletion.undoToken)
+    }
+    await expectError(.corruptedData) {
+      try await store.restoreHistoricalOccurrence(
+        HistoricalOccurrenceUndoToken(id: UUID(), day: day))
+    }
+  }
+
+  @Test
+  func historicalCorrectionsRejectCurrentFutureAndWrongDay() async throws {
+    let store = try makeStore()
+    try await store.prepare()
+    _ = try await store.ensurePlan(for: week)
+    let goal = try await store.addGoal(
+      to: week, configuration: GoalConfiguration(name: "Walk", frequency: .daily))
+    let today = LocalDay(year: 2026, month: 10, day: 28)!
+    let occurrence = try await store.recordIndulgence(
+      categoryID: BuiltInIndulgenceCategories.all[2].id)
+
+    await expectError(.staleDay) {
+      try await store.recordHistoricalCheckoff(goalID: goal.id, on: today)
+    }
+    await expectError(.staleDay) {
+      try await store.removeHistoricalOccurrence(id: occurrence.id, on: today.addingDays(-1)!)
+    }
+    #expect(try await store.dayHistory(for: today).occurrences == [occurrence])
+  }
+
+  @Test
+  func historicalOccurrenceDeleteAndRestoreRollBackOnSaveFailure() async throws {
+    let clock = Mutex(now)
+    let shouldFail = Mutex(false)
+    let zone = newYork
+    let container = try CadenceModelContainerFactory.makeInMemoryContainer()
+    let store = CadenceStore(
+      modelContainer: container,
+      dependencies: CadenceStoreDependencies(
+        date: DateProvider { clock.withLock { $0 } },
+        timeZone: CurrentTimeZoneProvider { zone },
+        uuid: .live,
+        beforeSave: {
+          if shouldFail.withLock({ $0 }) { throw InjectedFailure() }
+        }))
+    try await store.prepare()
+    _ = try await store.ensurePlan(for: week)
+    let goal = try await store.addGoal(
+      to: week, configuration: GoalConfiguration(name: "Walk", frequency: .daily))
+    let occurrence = try await store.recordIndulgence(
+      categoryID: BuiltInIndulgenceCategories.all[2].id)
+    clock.withLock { $0 = ISO8601DateFormatter().date(from: "2026-11-04T16:00:00Z")! }
+
+    shouldFail.withLock { $0 = true }
+    await expectError(.persistenceFailure) {
+      try await store.recordHistoricalCheckoff(goalID: goal.id, on: occurrence.localDay)
+    }
+    #expect(try await store.dayHistory(for: occurrence.localDay).checkoffs.isEmpty)
+    shouldFail.withLock { $0 = false }
+    _ = try await store.recordHistoricalCheckoff(goalID: goal.id, on: occurrence.localDay)
+    shouldFail.withLock { $0 = true }
+    await expectError(.persistenceFailure) {
+      try await store.removeHistoricalCheckoff(goalID: goal.id, on: occurrence.localDay)
+    }
+    #expect(try await store.dayHistory(for: occurrence.localDay).checkoffs.count == 1)
+
+    await expectError(.persistenceFailure) {
+      try await store.removeHistoricalOccurrence(id: occurrence.id, on: occurrence.localDay)
+    }
+    #expect(try await store.dayHistory(for: occurrence.localDay).occurrences == [occurrence])
+
+    shouldFail.withLock { $0 = false }
+    let deletion = try await store.removeHistoricalOccurrence(
+      id: occurrence.id, on: occurrence.localDay)
+    shouldFail.withLock { $0 = true }
+    await expectError(.persistenceFailure) {
+      try await store.restoreHistoricalOccurrence(deletion.undoToken)
+    }
+    #expect(try await store.dayHistory(for: occurrence.localDay).occurrences.isEmpty)
+  }
+
+  @Test
+  func historicalOccurrenceTokenCollisionCannotCommitDeletion() async throws {
+    let clock = Mutex(now)
+    let forcedID = Mutex<UUID?>(nil)
+    let zone = newYork
+    let store = CadenceStore(
+      modelContainer: try CadenceModelContainerFactory.makeInMemoryContainer(),
+      dependencies: CadenceStoreDependencies(
+        date: DateProvider { clock.withLock { $0 } },
+        timeZone: CurrentTimeZoneProvider { zone },
+        uuid: UUIDProvider { forcedID.withLock { $0 } ?? UUID() }))
+    try await store.prepare()
+    let occurrence = try await store.recordIndulgence(
+      categoryID: BuiltInIndulgenceCategories.all[2].id)
+    clock.withLock { $0 = ISO8601DateFormatter().date(from: "2026-11-04T16:00:00Z")! }
+    forcedID.withLock { $0 = occurrence.id }
+
+    await expectError(.identifierCollision) {
+      try await store.removeHistoricalOccurrence(id: occurrence.id, on: occurrence.localDay)
+    }
+    #expect(try await store.dayHistory(for: occurrence.localDay).occurrences == [occurrence])
   }
 
   @Test

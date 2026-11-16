@@ -31,6 +31,7 @@ actor CadenceStore:
   ApplicationPreparing, PlanningRepository, DailyTrackingRepository, HistoryRepository
 {
   private var dependencies: CadenceStoreDependencies = .live
+  private var pendingOccurrenceRestorations: [UUID: IndulgenceOccurrenceSnapshot] = [:]
 
   init(modelContainer: ModelContainer, dependencies: CadenceStoreDependencies = .live) {
     let context = ModelContext(modelContainer)
@@ -436,11 +437,117 @@ actor CadenceStore:
     return snapshot
   }
 
-  func removeOccurrence(id: UUID) throws -> IndulgenceOccurrenceSnapshot? {
-    guard let record = try occurrenceRecords().first(where: { $0.id == id }) else { return nil }
-    let snapshot = try occurrenceSnapshot(record)
-    try transaction { modelContext.delete(record) }
+  func recordHistoricalCheckoff(goalID: UUID, on day: LocalDay) throws
+    -> DayActivitySnapshot
+  {
+    let operation = operationContext()
+    guard day < operation.day else { throw RepositoryError.staleDay }
+    return try transaction {
+      let goal = try requireGoal(goalID)
+      let week = try weekForGoal(goal)
+      guard week == WeekID(containing: day), try goalIsActive(goal, on: day) else {
+        throw RepositoryError.inactiveGoal
+      }
+      let existing = try checkoffRecords().filter { $0.plannedGoalID == goalID }
+      guard !existing.contains(where: { $0.localDayKey == day.canonicalKey }) else {
+        throw RepositoryError.duplicateCheckoff
+      }
+      let goalSnapshot = try goalSnapshot(goal)
+      let activeDays = (0..<7).compactMap { week.monday.addingDays($0) }
+        .filter { goalSnapshot.wasHistoricallyActive(on: $0) }.count
+      let target = min(goalSnapshot.frequency.targetPerWeek, activeDays)
+      guard existing.count < target else { throw RepositoryError.targetAlreadyMet }
+
+      let plan = try requirePlan(week)
+      let zone =
+        TimeZone(identifier: plan.planningTimeZoneIdentifier)
+        ?? TimeZone(secondsFromGMT: plan.planningUTCOffsetSeconds)
+      guard let zone else { throw RepositoryError.corruptedData }
+      let calendar = GregorianCalendarService(timeZone: zone)
+      guard let instant = calendar.noon(for: day) else { throw RepositoryError.corruptedData }
+      let record = GoalCheckoffRecord(
+        id: try nextUniqueID(),
+        plannedGoalID: goalID,
+        instant: instant,
+        localDay: day,
+        timeZoneIdentifier: plan.planningTimeZoneIdentifier,
+        utcOffsetSeconds: zone.secondsFromGMT(for: instant),
+        createdAt: operation.instant,
+        updatedAt: operation.instant,
+        plannedGoal: goal)
+      modelContext.insert(record)
+      return try makeDaySnapshot(day)
+    }
+  }
+
+  func removeHistoricalCheckoff(goalID: UUID, on day: LocalDay) throws
+    -> DayActivitySnapshot
+  {
+    let operation = operationContext()
+    guard day < operation.day else { throw RepositoryError.staleDay }
+    return try transaction {
+      let goal = try requireGoal(goalID)
+      guard try weekForGoal(goal) == WeekID(containing: day),
+        try goalIsActive(goal, on: day)
+      else { throw RepositoryError.inactiveGoal }
+      let matches = try checkoffRecords().filter {
+        $0.plannedGoalID == goalID && $0.localDayKey == day.canonicalKey
+      }
+      guard matches.count <= 1 else { throw RepositoryError.corruptedData }
+      guard let record = matches.first else { throw RepositoryError.corruptedData }
+      modelContext.delete(record)
+      return try makeDaySnapshot(day)
+    }
+  }
+
+  func removeHistoricalOccurrence(id: UUID, on day: LocalDay) throws
+    -> HistoricalOccurrenceDeletion
+  {
+    let operation = operationContext()
+    guard day < operation.day else { throw RepositoryError.staleDay }
+    let token = HistoricalOccurrenceUndoToken(id: try nextUniqueID(), day: day)
+    let deletion = try transaction {
+      let matches = try occurrenceRecords().filter { $0.id == id }
+      guard matches.count <= 1 else { throw RepositoryError.corruptedData }
+      guard let record = matches.first else { throw RepositoryError.corruptedData }
+      let occurrence = try occurrenceSnapshot(record)
+      guard occurrence.localDay == day else { throw RepositoryError.staleDay }
+      modelContext.delete(record)
+      return (snapshot: try makeDaySnapshot(day), occurrence: occurrence)
+    }
+    pendingOccurrenceRestorations[token.id] = deletion.occurrence
+    return HistoricalOccurrenceDeletion(snapshot: deletion.snapshot, undoToken: token)
+  }
+
+  func restoreHistoricalOccurrence(_ token: HistoricalOccurrenceUndoToken) throws
+    -> DayActivitySnapshot
+  {
+    guard let occurrence = pendingOccurrenceRestorations[token.id], occurrence.localDay == token.day
+    else { throw RepositoryError.corruptedData }
+    let snapshot = try transaction {
+      guard !(try identifierExists(occurrence.id)) else {
+        throw RepositoryError.identifierCollision
+      }
+      let category = try requireCategory(occurrence.categoryID)
+      modelContext.insert(
+        IndulgenceOccurrenceRecord(
+          id: occurrence.id,
+          categoryID: occurrence.categoryID,
+          instant: occurrence.instant,
+          localDay: occurrence.localDay,
+          timeZoneIdentifier: occurrence.timeZoneIdentifier,
+          utcOffsetSeconds: occurrence.utcOffsetSeconds,
+          createdAt: occurrence.createdAt,
+          updatedAt: occurrence.updatedAt,
+          category: category))
+      return try makeDaySnapshot(token.day)
+    }
+    pendingOccurrenceRestorations[token.id] = nil
     return snapshot
+  }
+
+  func abandonHistoricalOccurrenceRestore(_ token: HistoricalOccurrenceUndoToken) {
+    pendingOccurrenceRestorations[token.id] = nil
   }
 
   private func makePlanRecord(
@@ -519,6 +626,8 @@ actor CadenceStore:
       .filter { $0.localDayKey == day.canonicalKey }
       .map(occurrenceSnapshot)
       .sorted { ($0.instant, $0.id.uuidString) < ($1.instant, $1.id.uuidString) }
+    guard Dictionary(grouping: checkoffs, by: \.plannedGoalID).values.allSatisfy({ $0.count == 1 })
+    else { throw RepositoryError.corruptedData }
     guard Set(occurrences.map(\.categoryID)).isSubset(of: Set(categories.map(\.id))) else {
       throw RepositoryError.corruptedData
     }
@@ -774,6 +883,7 @@ actor CadenceStore:
     let occurrences = try occurrenceRecords()
     let occupied =
       reserved.contains(id)
+      || pendingOccurrenceRestorations[id] != nil
       || plans.contains { $0.id == id }
       || goals.contains { $0.id == id || $0.lineageID == id }
       || checkoffs.contains { $0.id == id }
@@ -781,6 +891,20 @@ actor CadenceStore:
       || occurrences.contains { $0.id == id }
     guard !occupied else { throw RepositoryError.identifierCollision }
     return id
+  }
+
+  private func identifierExists(_ id: UUID) throws -> Bool {
+    let plans = try planRecords()
+    let goals = try goalRecords()
+    let checkoffs = try checkoffRecords()
+    let categories = try categoryRecords()
+    let occurrences = try occurrenceRecords()
+    return pendingOccurrenceRestorations[id] != nil
+      || plans.contains { $0.id == id }
+      || goals.contains { $0.id == id || $0.lineageID == id }
+      || checkoffs.contains { $0.id == id }
+      || categories.contains { $0.id == id }
+      || occurrences.contains { $0.id == id }
   }
 
   private func seedBuiltInCategories() throws {

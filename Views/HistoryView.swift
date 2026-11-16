@@ -289,17 +289,43 @@ final class DayHistoryModel: ObservableObject {
   }
 
   @Published private(set) var state: State = .loading
+  @Published private(set) var isMutating = false
+  @Published private(set) var pendingUndo: HistoricalOccurrenceUndoToken?
+  @Published private(set) var mutationMessage: String?
+  @Published private(set) var canCorrect = false
 
   let day: LocalDay
   private let repository: any HistoryRepository
+  private let date: DateProvider
+  private let timeZone: CurrentTimeZoneProvider
+  private let sleep: @Sendable (Duration) async throws -> Void
+  private let onHistoryChanged: @MainActor () -> Void
   private var generation = 0
+  private var undoGeneration = 0
+  private var expiryTask: Task<Void, Never>?
+  private let undoClock = ContinuousClock()
+  private var undoDeadline: ContinuousClock.Instant?
 
-  init(day: LocalDay, repository: any HistoryRepository) {
+  init(
+    day: LocalDay,
+    repository: any HistoryRepository,
+    date: DateProvider = .live,
+    timeZone: CurrentTimeZoneProvider = .live,
+    sleep: @escaping @Sendable (Duration) async throws -> Void = { duration in
+      try await Task.sleep(for: duration)
+    },
+    onHistoryChanged: @escaping @MainActor () -> Void = {}
+  ) {
     self.day = day
     self.repository = repository
+    self.date = date
+    self.timeZone = timeZone
+    self.sleep = sleep
+    self.onHistoryChanged = onHistoryChanged
   }
 
   func load() async {
+    refreshCorrectionAvailability()
     generation += 1
     let requestGeneration = generation
     state = .loading
@@ -311,6 +337,118 @@ final class DayHistoryModel: ObservableObject {
     } catch {
       guard requestGeneration == generation else { return }
       state = .failed
+    }
+  }
+
+  func toggleGoal(_ goal: DayHistoryGoalRow) async {
+    guard canCorrect, !isMutating else { return }
+    isMutating = true
+    mutationMessage = nil
+    defer { isMutating = false }
+    do {
+      let snapshot =
+        if goal.isComplete {
+          try await repository.removeHistoricalCheckoff(goalID: goal.id, on: day)
+        } else {
+          try await repository.recordHistoricalCheckoff(goalID: goal.id, on: day)
+        }
+      onHistoryChanged()
+      do {
+        try install(snapshot)
+        mutationMessage =
+          goal.isComplete
+          ? "\(goal.name) checkoff removed for this day."
+          : "\(goal.name) marked complete for this day."
+      } catch {
+        mutationMessage = "The change was saved. Please refresh this day."
+      }
+    } catch {
+      mutationMessage = "That change couldn’t be saved. Nothing changed."
+      refreshCorrectionAvailability()
+    }
+  }
+
+  func deleteOccurrence(_ occurrence: DayHistoryOccurrenceRow) async {
+    guard canCorrect, !isMutating, pendingUndo == nil else { return }
+    isMutating = true
+    mutationMessage = nil
+    defer { isMutating = false }
+    do {
+      let deletion = try await repository.removeHistoricalOccurrence(id: occurrence.id, on: day)
+      pendingUndo = deletion.undoToken
+      undoDeadline = undoClock.now.advanced(by: .seconds(10))
+      mutationMessage = "\(occurrence.name) entry removed. Undo available."
+      onHistoryChanged()
+      do { try install(deletion.snapshot) } catch {
+        mutationMessage = "The entry was removed. Undo is still available."
+      }
+      scheduleUndoExpiry()
+    } catch {
+      mutationMessage = "That change couldn’t be saved. Nothing changed."
+      refreshCorrectionAvailability()
+    }
+  }
+
+  func undoOccurrenceRemoval() async {
+    guard let token = pendingUndo, !isMutating else { return }
+    expiryTask?.cancel()
+    isMutating = true
+    mutationMessage = nil
+    defer { isMutating = false }
+    do {
+      let snapshot = try await repository.restoreHistoricalOccurrence(token)
+      pendingUndo = nil
+      undoDeadline = nil
+      mutationMessage = "Entry restored."
+      onHistoryChanged()
+      do { try install(snapshot) } catch {
+        mutationMessage = "The entry was restored. Please refresh this day."
+      }
+    } catch {
+      mutationMessage = "That entry couldn’t be restored yet. Please try again."
+      let remaining = undoDeadline.map { $0 - undoClock.now } ?? .zero
+      if remaining > .zero {
+        scheduleUndoExpiry(after: remaining)
+      } else {
+        await repository.abandonHistoricalOccurrenceRestore(token)
+        pendingUndo = nil
+        undoDeadline = nil
+      }
+    }
+  }
+
+  func endUndoScope() async {
+    expiryTask?.cancel()
+    expiryTask = nil
+    if let pendingUndo { await repository.abandonHistoricalOccurrenceRestore(pendingUndo) }
+    pendingUndo = nil
+    undoDeadline = nil
+  }
+
+  private func install(_ snapshot: DayActivitySnapshot) throws {
+    guard snapshot.day == day else { throw RepositoryError.corruptedData }
+    state = .ready(try DayHistoryPresentation(snapshot: snapshot))
+    refreshCorrectionAvailability()
+  }
+
+  private func refreshCorrectionAvailability() {
+    let instant = date.now()
+    let currentDay = GregorianCalendarService(timeZone: timeZone.current()).localDay(
+      containing: instant)
+    canCorrect = day < currentDay
+  }
+
+  private func scheduleUndoExpiry(after duration: Duration = .seconds(10)) {
+    expiryTask?.cancel()
+    undoGeneration += 1
+    let requestGeneration = undoGeneration
+    expiryTask = Task { [sleep] in
+      do { try await sleep(duration) } catch { return }
+      guard !Task.isCancelled, requestGeneration == undoGeneration else { return }
+      if let pendingUndo { await repository.abandonHistoricalOccurrenceRestore(pendingUndo) }
+      pendingUndo = nil
+      undoDeadline = nil
+      expiryTask = nil
     }
   }
 }
@@ -533,9 +671,22 @@ final class HistoryModel: ObservableObject {
 
 struct DayHistoryView: View {
   @StateObject private var model: DayHistoryModel
+  @AccessibilityFocusState private var undoIsFocused: Bool
 
-  init(day: LocalDay, repository: any HistoryRepository) {
-    _model = StateObject(wrappedValue: DayHistoryModel(day: day, repository: repository))
+  init(
+    day: LocalDay,
+    repository: any HistoryRepository,
+    date: DateProvider,
+    timeZone: CurrentTimeZoneProvider,
+    onHistoryChanged: @escaping @MainActor () -> Void = {}
+  ) {
+    _model = StateObject(
+      wrappedValue: DayHistoryModel(
+        day: day,
+        repository: repository,
+        date: date,
+        timeZone: timeZone,
+        onHistoryChanged: onHistoryChanged))
   }
 
   var body: some View {
@@ -561,11 +712,43 @@ struct DayHistoryView: View {
     .navigationTitle(fullDate(model.day))
     .navigationBarTitleDisplayMode(.inline)
     .task { await model.load() }
+    .onDisappear { Task { await model.endUndoScope() } }
+    .safeAreaInset(edge: .bottom) {
+      if model.pendingUndo != nil {
+        ViewThatFits(in: .horizontal) {
+          HStack {
+            Text(model.mutationMessage ?? "Entry removed.")
+            Spacer()
+            undoButton
+          }
+          VStack(alignment: .leading, spacing: 8) {
+            Text(model.mutationMessage ?? "Entry removed.")
+            undoButton
+          }
+        }
+        .padding()
+        .background(.bar)
+        .accessibilityElement(children: .contain)
+      }
+    }
+    .onChange(of: model.mutationMessage) { _, message in
+      guard let message else { return }
+      AccessibilityNotification.Announcement(message).post()
+    }
+    .onChange(of: model.pendingUndo) { _, token in
+      guard token != nil else { return }
+      undoIsFocused = true
+    }
   }
 
   private func dayContent(_ presentation: DayHistoryPresentation) -> some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 24) {
+        if let message = model.mutationMessage, model.pendingUndo == nil {
+          Text(message)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("history-day-mutation-message")
+        }
         goalsSection(presentation.goals)
         occurrencesSection(presentation.occurrences)
       }
@@ -583,19 +766,32 @@ struct DayHistoryView: View {
           .accessibilityIdentifier("history-day-goals-empty")
       } else {
         ForEach(goals) { goal in
-          HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: goal.isComplete ? "checkmark.circle.fill" : "circle")
-              .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
-              Text(goal.name).font(.headline)
-              Text(goal.status).font(.subheadline).foregroundStyle(.secondary)
+          Button {
+            Task { await model.toggleGoal(goal) }
+          } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+              Image(systemName: goal.isComplete ? "checkmark.circle.fill" : "circle")
+                .accessibilityHidden(true)
+              VStack(alignment: .leading, spacing: 3) {
+                Text(goal.name).font(.headline)
+                Text(goal.status).font(.subheadline).foregroundStyle(.secondary)
+              }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
           }
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding()
-          .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+          .buttonStyle(.plain)
+          .disabled(!model.canCorrect || model.isMutating)
           .accessibilityElement(children: .ignore)
           .accessibilityLabel(goal.accessibilityLabel)
+          .accessibilityHint(
+            !model.canCorrect
+              ? "Current-day changes belong in My Day"
+              : model.isMutating
+                ? "Another change is being saved"
+                : (goal.isComplete ? "Remove this checkoff" : "Add a checkoff for this day")
+          )
           .accessibilityIdentifier("history-day-goal-\(goal.id.uuidString)")
         }
       }
@@ -612,24 +808,59 @@ struct DayHistoryView: View {
       } else {
         ForEach(occurrences) { occurrence in
           ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-              occurrenceTitle(occurrence)
+            HStack(alignment: .center, spacing: 12) {
+              occurrenceContent(occurrence)
               Spacer()
-              Text(occurrence.recordedTime).foregroundStyle(.secondary)
+              deleteButton(occurrence)
             }
-            VStack(alignment: .leading, spacing: 6) {
-              occurrenceTitle(occurrence)
-              Text(occurrence.recordedTime).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+              occurrenceContent(occurrence)
+              deleteButton(occurrence)
             }
           }
           .padding()
           .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-          .accessibilityElement(children: .ignore)
-          .accessibilityLabel(occurrence.accessibilityLabel)
-          .accessibilityIdentifier("history-day-occurrence-\(occurrence.id.uuidString)")
         }
       }
     }
+  }
+
+  private func deleteButton(_ occurrence: DayHistoryOccurrenceRow) -> some View {
+    Button("Delete", role: .destructive) {
+      Task { await model.deleteOccurrence(occurrence) }
+    }
+    .disabled(!model.canCorrect || model.isMutating || model.pendingUndo != nil)
+    .frame(minWidth: 44, minHeight: 44)
+    .accessibilityLabel("Delete \(occurrence.accessibilityLabel)")
+    .accessibilityHint(
+      !model.canCorrect
+        ? "Current-day changes belong in My Day"
+        : model.isMutating
+          ? "Another change is being saved"
+          : model.pendingUndo == nil
+            ? "Removes this entry and offers Undo for 10 seconds"
+            : "Undo or wait before deleting another entry"
+    )
+    .accessibilityIdentifier("history-day-delete-\(occurrence.id.uuidString)")
+  }
+
+  private func occurrenceContent(_ occurrence: DayHistoryOccurrenceRow) -> some View {
+    VStack(alignment: .leading, spacing: 3) {
+      occurrenceTitle(occurrence)
+      Text(occurrence.recordedTime).foregroundStyle(.secondary)
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(occurrence.accessibilityLabel)
+    .accessibilityIdentifier("history-day-occurrence-\(occurrence.id.uuidString)")
+  }
+
+  private var undoButton: some View {
+    Button("Undo") { Task { await model.undoOccurrenceRemoval() } }
+      .disabled(model.isMutating)
+      .frame(minWidth: 44, minHeight: 44)
+      .accessibilityLabel("Undo entry removal")
+      .accessibilityIdentifier("history-day-undo")
+      .accessibilityFocused($undoIsFocused)
   }
 
   private func occurrenceTitle(_ occurrence: DayHistoryOccurrenceRow) -> some View {
@@ -654,8 +885,11 @@ struct HistoryView: View {
 
   private let refreshEvents: LocalCalendarRefreshEvents
   private let repository: any HistoryRepository
+  private let date: DateProvider
+  private let timeZone: CurrentTimeZoneProvider
   private let planningRevision: Int
   private let historyRevision: Int
+  private let onHistoryChanged: @MainActor () -> Void
 
   init(
     repository: any HistoryRepository,
@@ -663,14 +897,18 @@ struct HistoryView: View {
     timeZone: CurrentTimeZoneProvider,
     refreshEvents: LocalCalendarRefreshEvents = .live,
     planningRevision: Int = 0,
-    historyRevision: Int = 0
+    historyRevision: Int = 0,
+    onHistoryChanged: @escaping @MainActor () -> Void = {}
   ) {
     _model = StateObject(
       wrappedValue: HistoryModel(repository: repository, date: date, timeZone: timeZone))
     self.repository = repository
+    self.date = date
+    self.timeZone = timeZone
     self.refreshEvents = refreshEvents
     self.planningRevision = planningRevision
     self.historyRevision = historyRevision
+    self.onHistoryChanged = onHistoryChanged
   }
 
   var body: some View {
@@ -951,7 +1189,12 @@ struct HistoryView: View {
       ForEach(days.indices, id: \.self) { index in
         let value = days[index]
         NavigationLink {
-          DayHistoryView(day: value.day, repository: repository)
+          DayHistoryView(
+            day: value.day,
+            repository: repository,
+            date: date,
+            timeZone: timeZone,
+            onHistoryChanged: onHistoryChanged)
         } label: {
           VStack(spacing: 2) {
             Text(WeekHistoryPresentation.shortWeekdayNames[index]).font(.caption2)

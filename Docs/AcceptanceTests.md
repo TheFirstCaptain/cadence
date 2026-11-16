@@ -59,9 +59,11 @@ These are product-level scenarios. Feature records should add narrower validatio
 6. The user may navigate to prior weeks and months without an artificial limit, may not navigate into future periods, and can return through Today.
 7. Day detail shows Goal checkoffs and individual iIndulged occurrences with their recorded times.
 8. A past Goal checkoff may be added or removed only when the Goal was active on that date.
-9. A past iIndulged occurrence may be removed individually and restored through a temporary Undo action.
-10. Historical corrections immediately update all affected summaries.
-11. History never combines Goals and iIndulged into one score or converts behavior into moral or competitive rankings.
+9. A past iIndulged occurrence may be removed individually through an explicit accessible action and restored through Undo for 10 seconds while Day detail remains open.
+10. Leaving Day detail, allowing 10 seconds to elapse, or terminating the app dismisses Undo and leaves the occurrence deleted.
+11. Adding a past Goal checkoff records a date-only correction at local noon on that date in the weekly plan's recorded time zone; current-day correction remains in My Day and future dates remain read-only.
+12. Historical corrections immediately update the affected Day, Week, and Month summaries.
+13. History never combines Goals and iIndulged into one score or converts behavior into moral or competitive rankings.
 
 ## Data and time
 

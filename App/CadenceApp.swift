@@ -40,6 +40,9 @@ struct CadenceApp: App {
     if arguments.contains("--ui-test-history-day-read-failure") {
       return { try AppDependencies.uiTest(.historyDayReadFailure) }
     }
+    if arguments.contains("--ui-test-history-corrections") {
+      return { try AppDependencies.uiTest(.historyCorrections) }
+    }
     return AppDependencies.live
   }
 

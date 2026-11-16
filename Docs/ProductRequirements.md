@@ -50,7 +50,7 @@ Cadence is a lightweight personal wellness app that helps people find a sustaina
 - Show Goal results as plain completed-of-target counts without percentages.
 - Show every active iIndulged category, including zero counts; include an archived category only when the selected period contains one of its occurrences, without previous-period comparisons.
 - Allow navigation to prior periods, day and week drill-down, and a Today action; do not expose future periods.
-- Allow correction of past Goal checkoffs and removal of individual past iIndulged occurrences with Undo.
+- Allow correction of past Goal checkoffs using the selected plan's recorded time-zone context and removal of individual past iIndulged occurrences with a 10-second, Day-scoped Undo and explicit accessible deletion action.
 - Help the user notice patterns across Goals and indulgence occurrences.
 - Favor understandable summaries over dense analytics.
 

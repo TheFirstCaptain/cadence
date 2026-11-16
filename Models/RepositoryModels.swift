@@ -69,6 +69,16 @@ nonisolated struct IndulgenceOccurrenceSnapshot: Hashable, Sendable {
   let updatedAt: Date
 }
 
+nonisolated struct HistoricalOccurrenceUndoToken: Hashable, Sendable {
+  let id: UUID
+  let day: LocalDay
+}
+
+nonisolated struct HistoricalOccurrenceDeletion: Hashable, Sendable {
+  let snapshot: DayActivitySnapshot
+  let undoToken: HistoricalOccurrenceUndoToken
+}
+
 nonisolated struct DayActivitySnapshot: Hashable, Sendable {
   let day: LocalDay
   let goals: [PlannedGoalSnapshot]

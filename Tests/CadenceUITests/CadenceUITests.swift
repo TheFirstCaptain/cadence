@@ -136,6 +136,35 @@ final class CadenceUITests: XCTestCase {
   }
 
   @MainActor
+  func testHistoricalCorrectionDeletesAndUndoesAnExactOccurrence() throws {
+    let app = launchApplication(arguments: ["--ui-test-history-corrections"])
+    waitForReadyState(in: app)
+    primaryDestination("History", in: app).tap()
+    XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
+    element("history-previous-week", in: app).tap()
+    XCTAssertTrue(element("history-day-2026-10-28", in: app).waitForExistence(timeout: 5))
+    element("history-day-2026-10-28", in: app).tap()
+    XCTAssertTrue(element("history-day-ready", in: app).waitForExistence(timeout: 5))
+
+    let delete = app.descendants(matching: .any).matching(
+      NSPredicate(format: "identifier BEGINSWITH %@", "history-day-delete-")
+    ).firstMatch
+    XCTAssertTrue(delete.exists)
+    delete.tap()
+    XCTAssertTrue(element("history-day-undo", in: app).waitForExistence(timeout: 5))
+    XCTAssertEqual(
+      app.descendants(matching: .any).matching(
+        NSPredicate(format: "identifier BEGINSWITH %@", "history-day-delete-")
+      ).count, 1)
+    element("history-day-undo", in: app).tap()
+    XCTAssertFalse(element("history-day-undo", in: app).exists)
+    XCTAssertEqual(
+      app.buttons.matching(
+        NSPredicate(format: "identifier BEGINSWITH %@", "history-day-delete-")
+      ).count, 2)
+  }
+
+  @MainActor
   func testEmptyHistoryDayShowsBothSectionEmptyStates() throws {
     let app = launchApplication(arguments: ["--ui-test-my-day-empty"])
     waitForReadyState(in: app)

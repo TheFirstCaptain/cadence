@@ -39,6 +39,22 @@ nonisolated struct GregorianCalendarService: Sendable {
     )
   }
 
+  func noon(for localDay: LocalDay) -> Date? {
+    guard
+      let instant = calendar.date(
+        from: DateComponents(
+          calendar: calendar,
+          timeZone: timeZone,
+          year: localDay.year,
+          month: localDay.month,
+          day: localDay.day,
+          hour: 12
+        )),
+      self.localDay(containing: instant) == localDay
+    else { return nil }
+    return instant
+  }
+
   private var calendar: Calendar {
     var calendar = Calendar(identifier: .gregorian)
     calendar.locale = Locale(identifier: "en_US_POSIX")

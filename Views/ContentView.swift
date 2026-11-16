@@ -37,7 +37,8 @@ struct ContentView: View {
           date: dependencies.date,
           timeZone: dependencies.timeZone,
           planningRevision: planningRevision,
-          historyRevision: historyRevision
+          historyRevision: historyRevision,
+          onHistoryChanged: { historyRevision += 1 }
         )
       } label: {
         Label("History", systemImage: "clock.arrow.circlepath")
