@@ -184,6 +184,10 @@ fixture="$(make_fixture ui-application-lifecycle-cleanup)"
 ruby -e 'path = ARGV.fetch(0); text = File.read(path); changed = text.sub!(/\s+addTeardownBlock \{\n\s+app\.terminate\(\)\n\s+\}/, ""); abort("UI lifecycle cleanup fixture mutation did not apply") unless changed; File.write(path, text)' "$fixture/Tests/CadenceUITests/CadenceUITests.swift"
 expect_failure ui-application-lifecycle-cleanup "UI test launchApplication must register teardown termination before launch"
 
+fixture="$(make_fixture ui-navigation-control-query)"
+printf '%s\n' '' 'func forbiddenNavigationQuery(_ app: XCUIApplication) {' '  _ = app.navigationBars["Day"]' '    .buttons' '    .element(boundBy: 0)' '}' >>"$fixture/Tests/CadenceUITests/CadenceUITests.swift"
+expect_failure ui-navigation-control-query "UI tests must not locate navigation controls by positional navigation-bar button queries"
+
 simulator_fixture="$fixture_root/simulator-readiness-behavior"
 simulator_bin="$simulator_fixture/bin"
 simulator_artifacts="$simulator_fixture/artifacts"

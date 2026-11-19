@@ -172,6 +172,9 @@ end
 unless ui_test_suite.match?(/private func launchApplication\(arguments: \[String\]\) -> XCUIApplication \{.*?addTeardownBlock\s*\{.*?app\.terminate\(\).*?\}.*?app\.launch\(\)/m)
   fail_policy("UI test launchApplication must register teardown termination before launch")
 end
+if ui_test_sources.match?(/navigationBars\s*(?:\[[^\]]+\]\s*)?\.buttons\s*\.element\s*\(\s*boundBy:/m)
+  fail_policy("UI tests must not locate navigation controls by positional navigation-bar button queries")
+end
 readiness_call = 'Scripts/prepare-simulator.sh "$destination" "$artifact_root"'
 ui_test_call = 'test-without-building'
 unless quality_script.scan(readiness_call).length == 1 &&

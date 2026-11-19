@@ -71,7 +71,7 @@ final class CadenceUITests: XCTestCase {
     XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
     element("history-day-2026-10-28", in: app).tap()
     XCTAssertTrue(element("history-day-ready", in: app).waitForExistence(timeout: 5))
-    app.navigationBars.buttons.element(boundBy: 0).tap()
+    navigateBack(in: app)
     XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
   }
 
@@ -131,7 +131,7 @@ final class CadenceUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Delete"].exists)
     XCTAssertFalse(app.buttons["Undo"].exists)
 
-    app.navigationBars.buttons.element(boundBy: 0).tap()
+    navigateBack(in: app)
     XCTAssertTrue(element("history-week-range", in: app).waitForExistence(timeout: 5))
   }
 
@@ -542,6 +542,16 @@ final class CadenceUITests: XCTestCase {
   @MainActor
   private func elementWithLabel(_ label: String, in app: XCUIApplication) -> XCUIElement {
     app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
+  }
+
+  @MainActor
+  private func navigateBack(in app: XCUIApplication) {
+    let backButton = element("BackButton", in: app)
+    guard backButton.waitForExistence(timeout: 5) else {
+      XCTFail("Day History back button was unavailable")
+      return
+    }
+    backButton.tap()
   }
 
   @MainActor
