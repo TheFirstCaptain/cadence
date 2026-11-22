@@ -5,6 +5,32 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repository_root"
 
+if [[ "${CADENCE_QUALITY_WATCHDOG_ACTIVE:-0}" != "1" ]]; then
+  quality_timeout_seconds="${CADENCE_QUALITY_TIMEOUT_SECONDS:-3300}"
+  if [[ ! "$quality_timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+    echo "quality: CADENCE_QUALITY_TIMEOUT_SECONDS must be a positive integer" >&2
+    exit 2
+  fi
+
+  if [[ -n "${CADENCE_ARTIFACT_ROOT:-}" ]]; then
+    quality_artifact_root="$CADENCE_ARTIFACT_ROOT"
+    mkdir -p "$quality_artifact_root"
+    quality_owns_artifact_root=0
+  else
+    quality_artifact_root="$(mktemp -d "${TMPDIR:-/tmp}/cadence-quality.XXXXXX")"
+    quality_owns_artifact_root=1
+  fi
+
+  export CADENCE_ARTIFACT_ROOT="$quality_artifact_root"
+  export CADENCE_QUALITY_OWNS_ARTIFACT_ROOT="$quality_owns_artifact_root"
+  export CADENCE_QUALITY_WATCHDOG_ACTIVE=1
+  exec ruby Scripts/run-with-timeout.rb \
+    "$quality_timeout_seconds" \
+    "$quality_artifact_root/quality-timeout.txt" \
+    "authoritative quality gate" \
+    -- "$0" "$@"
+fi
+
 mode="full"
 if [[ $# -gt 1 ]]; then
   echo "usage: Scripts/quality.sh [--fast]" >&2
@@ -27,14 +53,8 @@ for command_name in xcodebuild xcrun ruby; do
 done
 
 destination="${CADENCE_DESTINATION:-platform=iOS Simulator,name=iPhone 17,OS=latest}"
-if [[ -n "${CADENCE_ARTIFACT_ROOT:-}" ]]; then
-  artifact_root="$CADENCE_ARTIFACT_ROOT"
-  mkdir -p "$artifact_root"
-  owns_artifact_root=0
-else
-  artifact_root="$(mktemp -d "${TMPDIR:-/tmp}/cadence-quality.XXXXXX")"
-  owns_artifact_root=1
-fi
+artifact_root="$CADENCE_ARTIFACT_ROOT"
+owns_artifact_root="${CADENCE_QUALITY_OWNS_ARTIFACT_ROOT:-0}"
 derived_data="$artifact_root/DerivedData"
 build_results="$artifact_root/Build.xcresult"
 test_results="$artifact_root/Tests.xcresult"

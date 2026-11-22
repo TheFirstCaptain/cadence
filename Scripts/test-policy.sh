@@ -143,11 +143,59 @@ fixture="$(make_fixture ci-artifact-path)"
 ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("          path: /tmp/cadence-quality", "          path: /tmp/wrong-quality-path"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
 expect_failure ci-artifact-path "CI failure upload path must match CADENCE_ARTIFACT_ROOT"
 
+fixture="$(make_fixture ci-watchdog-reserve)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("timeout-minutes: 75", "timeout-minutes: 60"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
+expect_failure ci-watchdog-reserve "reserve at least 10 minutes"
+
+fixture="$(make_fixture ci-watchdog-bypass)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("      CADENCE_QUALITY_TIMEOUT_SECONDS: 3300\n", "      CADENCE_QUALITY_TIMEOUT_SECONDS: 3300\n      CADENCE_QUALITY_WATCHDOG_ACTIVE: 1\n"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
+expect_failure ci-watchdog-bypass "must not bypass private quality-watchdog re-entry state"
+
+fixture="$(make_fixture quality-watchdog-wiring)"
+ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("exec ruby Scripts/run-with-timeout.rb", "exec ruby Scripts/run-without-timeout.rb"); File.write(path, text)' "$fixture/Scripts/quality.sh"
+expect_failure quality-watchdog-wiring "retain its process-group watchdog"
+
 fixture="$(make_fixture ci-context)"
 ruby -e 'path = ARGV.fetch(0); text = File.read(path); text.sub!("CADENCE_ARTIFACT_ROOT: /tmp/cadence-quality", "CADENCE_ARTIFACT_ROOT: ${{ runner.temp }}/cadence-quality"); File.write(path, text)' "$fixture/.github/workflows/quality.yml"
 expect_failure ci-context "step-only runner context"
 
 expect_command_failure unknown-quality-mode "quality: unknown mode" Scripts/quality.sh --invalid
+
+watchdog_fixture="$fixture_root/quality-watchdog-behavior"
+mkdir -p "$watchdog_fixture"
+ruby Scripts/run-with-timeout.rb 5 "$watchdog_fixture/success-marker" success -- /bin/sh -c 'exit 0'
+if [[ -e "$watchdog_fixture/success-marker" ]]; then
+  echo "policy fixtures: quality-watchdog-success unexpectedly wrote a timeout marker" >&2
+  exit 1
+fi
+echo "policy fixtures: quality-watchdog-success passed"
+
+set +e
+ruby Scripts/run-with-timeout.rb 5 "$watchdog_fixture/failure-marker" failure -- /bin/sh -c 'exit 23'
+watchdog_failure_status=$?
+set -e
+if [[ "$watchdog_failure_status" -ne 23 || -e "$watchdog_fixture/failure-marker" ]]; then
+  echo "policy fixtures: quality-watchdog-failure did not preserve status 23" >&2
+  exit 1
+fi
+echo "policy fixtures: quality-watchdog-failure preserved status"
+
+set +e
+CADENCE_WATCHDOG_GRACE_SECONDS=1 ruby Scripts/run-with-timeout.rb \
+  1 "$watchdog_fixture/timeout-marker" timeout \
+  -- /bin/sh -c 'trap "" TERM; (trap "" TERM; while :; do sleep 1; done) & child=$!; echo "$child" >"$1"; wait' fixture "$watchdog_fixture/descendant-pid"
+watchdog_timeout_status=$?
+set -e
+if [[ "$watchdog_timeout_status" -ne 124 || ! -s "$watchdog_fixture/timeout-marker" ]]; then
+  echo "policy fixtures: quality-watchdog-timeout did not return 124 with a marker" >&2
+  exit 1
+fi
+descendant_pid="$(cat "$watchdog_fixture/descendant-pid")"
+if kill -0 "$descendant_pid" 2>/dev/null; then
+  echo "policy fixtures: quality-watchdog-timeout left descendant $descendant_pid running" >&2
+  exit 1
+fi
+echo "policy fixtures: quality-watchdog-timeout terminated its process group"
 
 missing_results="$fixture_root/missing-results"
 mkdir -p "$missing_results"

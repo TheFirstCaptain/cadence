@@ -146,6 +146,9 @@ end
 workflow = read(root, ".github/workflows/quality.yml")
 job_environment = workflow[/^    env:\n((?:      [A-Z_]+:.*\n)+)/, 1].to_s
 fail_policy("CI job-level environment must not use the step-only runner context") if job_environment.include?("${{ runner.")
+if workflow.match?(/^\s+CADENCE_QUALITY_(?:WATCHDOG_ACTIVE|OWNS_ARTIFACT_ROOT):/)
+  fail_policy("CI must not bypass private quality-watchdog re-entry state")
+end
 %w[pull_request schedule workflow_dispatch].each do |trigger|
   fail_policy("CI workflow is missing #{trigger} trigger") unless workflow.match?(/^\s*#{trigger}:/)
 end
@@ -155,12 +158,27 @@ quality_invocations = workflow.lines.map(&:strip)
 fail_policy("CI must invoke the authoritative full quality command exactly once") unless quality_invocations.count(full_gate) == 1
 fail_policy("CI quality log pipeline must propagate gate failures") unless workflow.match?(/run:\s*\|\s*\n\s*set -o pipefail\s*\n\s*#{Regexp.escape(full_gate)}/)
 fail_policy("CI must retain quality artifacts on failure") unless workflow.include?("if: failure()") && workflow.include?("CADENCE_KEEP_ARTIFACTS: 1")
+job_timeout_minutes = workflow[/^    timeout-minutes:\s*(\d+)$/, 1]&.to_i
+quality_timeout_seconds = workflow[/^      CADENCE_QUALITY_TIMEOUT_SECONDS:\s*(\d+)$/, 1]&.to_i
+unless job_timeout_minutes && quality_timeout_seconds &&
+    job_timeout_minutes * 60 - quality_timeout_seconds >= 600
+  fail_policy("CI must reserve at least 10 minutes after the quality watchdog for evidence upload")
+end
 artifact_root = workflow[/^      CADENCE_ARTIFACT_ROOT:\s*(.+)$/, 1]
 upload_path = workflow[/^          path:\s*(.+)$/, 1]
 fail_policy("CI failure upload path must match CADENCE_ARTIFACT_ROOT") unless artifact_root && upload_path == artifact_root
 
 result_verifier = read(root, "Scripts/verify-result-bundles.sh")
 quality_script = read(root, "Scripts/quality.sh")
+quality_watchdog = read(root, "Scripts/run-with-timeout.rb")
+unless quality_script.include?('exec ruby Scripts/run-with-timeout.rb') &&
+    quality_script.include?('"$quality_artifact_root/quality-timeout.txt"') &&
+    quality_watchdog.include?('Process.spawn(*command, pgroup: true)') &&
+    quality_watchdog.include?('Process.kill("TERM", -pid)') &&
+    quality_watchdog.include?('Process.kill("KILL", -pid)') &&
+    quality_watchdog.include?('exit 124')
+  fail_policy("authoritative quality gate must retain its process-group watchdog")
+end
 full_scheme = read(root, "Cadence.xcodeproj/xcshareddata/xcschemes/Cadence.xcscheme")
 ui_test_suite = read(root, "Tests/CadenceUITests/CadenceUITests.swift")
 ui_test_sources = Dir[root.join("Tests/CadenceUITests/**/*.swift")].map { |path| File.read(path) }.join("\n")

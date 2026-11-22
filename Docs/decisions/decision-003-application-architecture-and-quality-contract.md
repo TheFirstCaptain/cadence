@@ -35,6 +35,8 @@ The default destination is `platform=iOS Simulator,name=iPhone 17,OS=latest`, wh
 
 Quality policy follows a regression ratchet. Every discovered divergence is classified and receives the lowest-cost deterministic guard for its entire class before the work closes. When automation is genuinely infeasible, the work records a manual check, owner, reason, residual risk, and tracked automation follow-up. Guards cannot be removed or weakened silently, and scheduled failures cannot be normalized by relaxing the contract.
 
+The authoritative command owns one process-group watchdog around its complete execution. A stalled Xcode, simulator, or test descendant is terminated as one group before the hosted job deadline, produces a dedicated timeout marker, and returns a distinct failure status. The hosted workflow retains at least ten minutes beyond that inner deadline so the ordinary failure-evidence step can upload the complete log and partial artifacts. This outer reserve does not retry tests, extend XCTest tolerance, or weaken the shared local/hosted stages.
+
 F-002 creates only launch, default-tab, and three-tab navigation UI smoke coverage. Complete workflow UI tests belong to F-003 through F-005 when those workflows exist. Meaningful UI changes also require a manual accessibility matrix because automated tests cannot prove VoiceOver usability, Dynamic Type layout, contrast, haptics, or Reduce Motion behavior completely.
 
 ## Consequences
@@ -48,6 +50,7 @@ F-002 creates only launch, default-tab, and three-tab navigation UI smoke covera
 - Fast checks shorten the implementation feedback loop without creating a second, weaker policy.
 - Weekly execution detects toolchain, runner, simulator, project-setting, and latent test drift even when no code changes.
 - A discovered failure class becomes harder to repeat because its guard is retained permanently.
+- Hosted infrastructure stalls fail within a bounded diagnostic envelope instead of consuming the artifact-upload window.
 - The initial repository carries more foundation tests and documentation, reducing migration and date-boundary risk later.
 
 ## Alternatives considered
