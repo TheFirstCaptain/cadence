@@ -17,9 +17,9 @@ The app is intended to be private and local-first. Punitive streaks, leaderboard
 
 ## Current status
 
-Cadence has completed its development foundation, My Day, My Goals, and the F-005A/F-005B/F-005C Week, Month, and read-only Day History foundations. F-005D historical corrections are implemented and in final validation. Its three-tab product skeleton—My Day, My Goals, and History—builds on a versioned local data model, repository boundary, deterministic date services, and a shared local/hosted quality gate.
+Cadence has completed its development foundation, My Day, My Goals, and all four History slices: Week, Month, read-only Day detail, and historical corrections. Its three-tab product skeleton—My Day, My Goals, and History—builds on a versioned local data model, repository boundary, deterministic date services, and a shared local/hosted quality gate.
 
-[F-002: iOS Project Foundation](Docs/features/F-002.md), [F-003: My Day](Docs/features/F-003.md), [F-004: My Goals](Docs/features/F-004.md), [F-005A: Week History Foundation](Docs/features/F-005A.md), [F-005B: Month History](Docs/features/F-005B.md), and [F-005C: Day History Detail](Docs/features/F-005C.md) are complete. F-005D historical corrections are implemented and validating after independent final review and local/hosted 143-test gates; the hands-on accessibility matrix remains. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
+[F-002: iOS Project Foundation](Docs/features/F-002.md), [F-003: My Day](Docs/features/F-003.md), [F-004: My Goals](Docs/features/F-004.md), [F-005A: Week History Foundation](Docs/features/F-005A.md), [F-005B: Month History](Docs/features/F-005B.md), [F-005C: Day History Detail](Docs/features/F-005C.md), and [F-005D: Historical Corrections](Docs/features/F-005D.md) are complete. Cadence targets iPhone in portrait on iOS 27 and uses one prepared local-only SwiftData store behind focused repository interfaces with a CloudKit-compatible schema.
 
 ## Repository layout
 

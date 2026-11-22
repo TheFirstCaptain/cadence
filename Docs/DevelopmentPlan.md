@@ -60,7 +60,7 @@
 - **F-005A Week History foundation:** Complete. Current/prior Week aggregation, period navigation, plain Goal counts, neutral iIndulged distribution, lifecycle refresh, independent reviews, local/hosted 115-test gates, and the manual accessibility matrix passed.
 - **F-005B Month History:** Complete. Majority-of-week mapping, atomic calendar-Month aggregation, complete overlapping weekly Goal rows, explicit outside-month accessibility, Week drill-down, independent final review, the hands-on accessibility matrix, and local/hosted 126-test gates passed; run `43470160752` attempt 2 validates `fd9237c`.
 - **F-005C Day History detail:** Complete. Read-only daily Goal/checkoff and timestamped occurrence inspection, saved-zone formatting, future-day semantics, destination-scoped retry, Week/Month return paths, independent final reviews, hands-on accessibility, and local/hosted gates passed; run `45030208178` validates `c9ac429`.
-- **F-005D Historical corrections:** Validating. Guarded plan-zone local-noon checkoffs, opaque exact deletion/restoration, absolute 10-second Day-scoped Undo, accessible feedback, rollback, and Day/Week/Month invalidation are implemented; independent final reviews and local/hosted 143-test gates pass. The hands-on accessibility matrix remains.
+- **F-005D Historical corrections:** Complete. Guarded plan-zone local-noon checkoffs, opaque exact deletion/restoration, absolute 10-second Day-scoped Undo, accessible feedback, rollback, and Day/Week/Month invalidation passed independent final reviews, local/hosted 143-test gates, and the hands-on accessibility matrix.
 
 ### 5. Polish and validation
 
